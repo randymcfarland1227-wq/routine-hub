@@ -3,13 +3,61 @@ const state = {
   listShowPaused: false,      // list mode
   listActiveCats: new Set(CATEGORIES.map(c => c.id)),
   zoom: 1,
+  starred: new Set(JSON.parse(localStorage.getItem('routineHub.starred') || '[]')),
   observations: [],
   reviewAnswers: {}, // categoryId -> { serving, roadblocks, why, notes }
 };
 
 const ZOOM_MIN = 0.7, ZOOM_MAX = 1.6, ZOOM_STEP = 0.1, ZOOM_BASE = 380;
+const NEW_BADGE_DAYS = 14;
 
 const connected = () => !!APPS_SCRIPT_URL;
+
+function toggleStar(id) {
+  if (state.starred.has(id)) state.starred.delete(id); else state.starred.add(id);
+  localStorage.setItem('routineHub.starred', JSON.stringify([...state.starred]));
+}
+
+function isNew(r) {
+  if (!r.dateAdded) return false;
+  const added = new Date(r.dateAdded + 'T00:00:00');
+  const days = (Date.now() - added.getTime()) / 86400000;
+  return days >= 0 && days <= NEW_BADGE_DAYS;
+}
+
+function prioritySort(a, b) {
+  const starDiff = (state.starred.has(b.id) ? 1 : 0) - (state.starred.has(a.id) ? 1 : 0);
+  return starDiff !== 0 ? starDiff : b.freq - a.freq;
+}
+
+function routineCardHTML(r) {
+  const starred = state.starred.has(r.id);
+  return `
+    <div class="card${r.active ? '' : ' paused'}${starred ? ' starred' : ''}">
+      <div class="card-top">
+        <h3>${r.focus}${r.active ? '' : '<span class="paused-tag">paused</span>'}${isNew(r) ? '<span class="new-tag">new</span>' : ''}</h3>
+        <div class="card-top-right">
+          <button class="star-btn" data-id="${r.id}" aria-label="${starred ? 'Unstar' : 'Star as priority'}">${starred ? '★' : '☆'}</button>
+          <span class="freq-badge">${r.frequency}</span>
+        </div>
+      </div>
+      <p class="why">${r.why}</p>
+      <div class="meta">
+        <span><b>What —</b> ${r.what}</span>
+        ${r.object ? `<span><b>Needs —</b> ${r.object}</span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function wireStarButtons(container, onToggle) {
+  container.querySelectorAll('.star-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      toggleStar(btn.dataset.id);
+      onToggle();
+    });
+  });
+}
 
 // ---------------------------------------------------------------------
 // Tabs
@@ -43,7 +91,6 @@ function setMode(mode, resetHash) {
 // ---------------------------------------------------------------------
 // Overview — wheel of categories, drilling into one at a time
 // ---------------------------------------------------------------------
-function freqSort(a, b) { return b.freq - a.freq; }
 
 function renderWheel() {
   const nodesEl = document.getElementById('wheelNodes');
@@ -141,21 +188,10 @@ function renderCategoryCards(cat) {
   const grid = document.getElementById('categoryCards');
   let items = ROUTINES.filter(r => r.category === cat.id);
   if (!state.showPaused) items = items.filter(r => r.active);
-  items = items.slice().sort(freqSort);
+  items = items.slice().sort(prioritySort);
 
-  grid.innerHTML = items.map(r => `
-    <div class="card${r.active ? '' : ' paused'}">
-      <div class="card-top">
-        <h3>${r.focus}${r.active ? '' : '<span class="paused-tag">paused</span>'}</h3>
-        <span class="freq-badge">${r.frequency}</span>
-      </div>
-      <p class="why">${r.why}</p>
-      <div class="meta">
-        <span><b>What —</b> ${r.what}</span>
-        ${r.object ? `<span><b>Needs —</b> ${r.object}</span>` : ''}
-      </div>
-    </div>
-  `).join('');
+  grid.innerHTML = items.map(routineCardHTML).join('');
+  wireStarButtons(grid, () => renderCategoryCards(cat));
 
   const plantSection = document.getElementById('plantSection');
   plantSection.innerHTML = '';
@@ -233,7 +269,7 @@ function renderList() {
     let items = ROUTINES.filter(r => r.category === cat.id);
     if (!state.listShowPaused) items = items.filter(r => r.active);
     if (!items.length) return;
-    items = items.slice().sort(freqSort);
+    items = items.slice().sort(prioritySort);
 
     const section = document.createElement('div');
     section.className = 'cat-section';
@@ -246,26 +282,9 @@ function renderList() {
         <span class="count">${items.length}</span>
       </div>
       <p class="cat-blurb">${cat.blurb}</p>
-      <div class="card-grid"></div>
+      <div class="card-grid">${items.map(routineCardHTML).join('')}</div>
     `;
-
-    const grid = section.querySelector('.card-grid');
-    items.forEach(r => {
-      const card = document.createElement('div');
-      card.className = 'card' + (r.active ? '' : ' paused');
-      card.innerHTML = `
-        <div class="card-top">
-          <h3>${r.focus}${r.active ? '' : '<span class="paused-tag">paused</span>'}</h3>
-          <span class="freq-badge">${r.frequency}</span>
-        </div>
-        <p class="why">${r.why}</p>
-        <div class="meta">
-          <span><b>What —</b> ${r.what}</span>
-          ${r.object ? `<span><b>Needs —</b> ${r.object}</span>` : ''}
-        </div>
-      `;
-      grid.appendChild(card);
-    });
+    wireStarButtons(section, renderList);
 
     container.appendChild(section);
 
