@@ -10,7 +10,6 @@
  *   POST {action:'addReview', date, category, serving, roadblocks, why, notes}
  */
 
-var OBSERVATIONS_SHEET_NAME = 'Observations';
 var REVIEWS_SHEET_NAME = 'Reviews';
 
 function doGet(e) {
@@ -36,32 +35,32 @@ function jsonOut(obj) {
 }
 
 // ---------------------------------------------------------------------
-// Observations — reuses your existing "Observations" tab. Finds the
-// header row by scanning for a cell that says "Observation", so it
-// works with your current layout without needing to rearrange anything.
+// Observations — searches every tab for one with an "Observation" column
+// header, so it works regardless of what the tab is actually named.
 // ---------------------------------------------------------------------
 
 function findObservationsLayout() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(OBSERVATIONS_SHEET_NAME);
-  if (!sheet) throw new Error('No "' + OBSERVATIONS_SHEET_NAME + '" tab found.');
-
-  var data = sheet.getDataRange().getValues();
-  for (var r = 0; r < data.length; r++) {
-    for (var c = 0; c < data[r].length; c++) {
-      var val = String(data[r][c]).trim().toLowerCase();
-      if (val === 'observation') {
-        var obsCol = c;
-        var idCol = c - 1 >= 0 ? c - 1 : c;
-        var actionCol = -1;
-        for (var c2 = c + 1; c2 < data[r].length; c2++) {
-          if (String(data[r][c2]).trim().toLowerCase().indexOf('action') === 0) { actionCol = c2; break; }
+  var sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  for (var s = 0; s < sheets.length; s++) {
+    var sheet = sheets[s];
+    var data = sheet.getDataRange().getValues();
+    for (var r = 0; r < data.length; r++) {
+      for (var c = 0; c < data[r].length; c++) {
+        var val = String(data[r][c]).trim().toLowerCase();
+        if (val === 'observation') {
+          var obsCol = c;
+          var idCol = c - 1 >= 0 ? c - 1 : c;
+          var actionCol = -1;
+          for (var c2 = c + 1; c2 < data[r].length; c2++) {
+            if (String(data[r][c2]).trim().toLowerCase().indexOf('action') === 0) { actionCol = c2; break; }
+          }
+          if (actionCol === -1) actionCol = c + 1;
+          return { sheet: sheet, headerRow: r, idCol: idCol, obsCol: obsCol, actionCol: actionCol };
         }
-        if (actionCol === -1) actionCol = c + 1;
-        return { sheet: sheet, headerRow: r, idCol: idCol, obsCol: obsCol, actionCol: actionCol };
       }
     }
   }
-  throw new Error('Could not find an "Observation" header in the ' + OBSERVATIONS_SHEET_NAME + ' tab.');
+  throw new Error('Could not find a tab with an "Observation" column header anywhere in this spreadsheet.');
 }
 
 function getObservations() {
