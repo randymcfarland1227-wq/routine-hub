@@ -4,6 +4,7 @@ const state = {
   listActiveCats: new Set(CATEGORIES.map(c => c.id)),
   zoom: 1,
   starred: new Set(JSON.parse(localStorage.getItem('routineHub.starred') || '[]')),
+  routines: ROUTINES.slice(), // overwritten by loadRoutines() once the Sheet responds
   observations: [],
   reviewAnswers: {}, // categoryId -> { serving, roadblocks, why, notes }
 };
@@ -46,6 +47,7 @@ function routineCardHTML(r) {
         <span><b>What —</b> ${r.what}</span>
         ${r.object ? `<span><b>Needs —</b> ${r.object}</span>` : ''}
       </div>
+      <button class="icon-btn card-delete-btn" data-id="${r.id}" title="Delete routine">✕</button>
     </div>
   `;
 }
@@ -57,6 +59,129 @@ function wireStarButtons(container, onToggle) {
       onToggle();
     });
   });
+  container.querySelectorAll('.card-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteRoutine(btn.dataset.id, onToggle));
+  });
+}
+
+// ---------------------------------------------------------------------
+// Routines — fetched from the "Site Routines" sheet tab (seeded once
+// from the built-in defaults below), or those defaults if not connected.
+// ---------------------------------------------------------------------
+async function loadRoutines() {
+  if (!connected()) { state.routines = localGet('routineHub.routines.local', ROUTINES.slice()); return; }
+  try {
+    let fetched = await apiGet('routines') || [];
+    if (!fetched.length) {
+      await apiPost('seedRoutines', { rows: ROUTINES });
+      fetched = await apiGet('routines') || [];
+    }
+    state.routines = fetched.length ? fetched : ROUTINES.slice();
+  } catch {
+    state.routines = ROUTINES.slice();
+  }
+}
+
+function addRoutineBlockHTML(catId) {
+  return `
+    <button class="btn add-toggle-btn add-routine-toggle" data-cat="${catId}">+ Add a routine</button>
+    <div class="panel add-routine-panel" data-cat="${catId}" style="display:none">
+      <h3>Add a routine</h3>
+      <div class="field">
+        <label>Focus</label>
+        <input type="text" class="ar-focus" placeholder="e.g. Evening Stretch">
+      </div>
+      <div class="field">
+        <label>Why</label>
+        <input type="text" class="ar-why" placeholder="Why does this matter?">
+      </div>
+      <div class="field">
+        <label>What</label>
+        <input type="text" class="ar-what" placeholder="What does doing it look like?">
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Frequency</label>
+          <select class="ar-frequency">
+            <option value="Daily|7">Daily</option>
+            <option value="4x / week|4">4x / week</option>
+            <option value="3x / week|3">3x / week</option>
+            <option value="2x / week|2">2x / week</option>
+            <option value="Weekly|1" selected>Weekly</option>
+            <option value="Bi-weekly|0.5">Bi-weekly</option>
+            <option value="Monthly|0.25">Monthly</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Duration <span class="optional">optional</span></label>
+          <input type="text" class="ar-duration" placeholder="e.g. 20 mins">
+        </div>
+      </div>
+      <div class="field">
+        <label>Needs <span class="optional">optional</span></label>
+        <input type="text" class="ar-object" placeholder="e.g. Yoga mat">
+      </div>
+      <button class="btn ar-submit" data-cat="${catId}">Add routine</button>
+      <div class="status-msg ar-status"></div>
+    </div>
+  `;
+}
+
+function wireAddRoutine(container, catId, onDone) {
+  const toggle = container.querySelector(`.add-routine-toggle[data-cat="${catId}"]`);
+  const panel = container.querySelector(`.add-routine-panel[data-cat="${catId}"]`);
+  if (!toggle || !panel) return;
+  toggle.addEventListener('click', () => {
+    const open = panel.style.display !== 'none';
+    panel.style.display = open ? 'none' : '';
+    toggle.textContent = open ? '+ Add a routine' : '− Close';
+  });
+  panel.querySelector('.ar-submit').addEventListener('click', () => addRoutine(catId, panel, onDone));
+}
+
+async function addRoutine(catId, panel, onDone) {
+  const status = panel.querySelector('.ar-status');
+  const focus = panel.querySelector('.ar-focus').value.trim();
+  const why = panel.querySelector('.ar-why').value.trim();
+  const what = panel.querySelector('.ar-what').value.trim();
+  const [frequency, freq] = panel.querySelector('.ar-frequency').value.split('|');
+  const duration = panel.querySelector('.ar-duration').value.trim();
+  const object = panel.querySelector('.ar-object').value.trim();
+
+  if (!focus || !why || !what) { status.textContent = 'Fill in focus, why, and what.'; return; }
+  status.textContent = 'Saving...';
+
+  const body = { category: catId, focus, why, what, frequency, freq: Number(freq), duration, object, active: true };
+  const today = new Date().toISOString().slice(0, 10);
+  const localEntry = { ...body, id: `${catId}-${Date.now()}`, dateAdded: today };
+
+  if (connected()) {
+    try {
+      const saved = await apiPost('addRoutine', body);
+      if (!saved || !saved.id) { status.textContent = 'Sheet did not confirm the save — is Code.gs redeployed?'; return; }
+      state.routines.push({ ...body, id: saved.id, dateAdded: saved.dateAdded });
+    } catch { status.textContent = 'Could not save to your Sheet.'; return; }
+  } else {
+    state.routines.push(localEntry);
+    localSet('routineHub.routines.local', state.routines);
+  }
+
+  panel.querySelectorAll('input').forEach(i => i.value = '');
+  status.textContent = 'Added.';
+  setTimeout(() => status.textContent = '', 1500);
+  onDone();
+}
+
+async function deleteRoutine(id, onDone) {
+  if (!confirm('Delete this routine? This cannot be undone.')) return;
+  state.routines = state.routines.filter(r => String(r.id) !== String(id));
+  onDone();
+  if (connected()) {
+    try { await apiPost('deleteRoutine', { id }); }
+    catch { /* already removed locally; Sheet will drift until next successful call */ }
+  } else {
+    localSet('routineHub.routines.local', state.routines);
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -106,7 +231,7 @@ function renderWheel() {
     const angle = (2 * Math.PI * i) / n - Math.PI / 2;
     const x = cx + R * Math.cos(angle);
     const y = cy + R * Math.sin(angle);
-    const count = ROUTINES.filter(r => r.category === cat.id && r.active).length;
+    const count = state.routines.filter(r => r.category === cat.id && r.active).length;
 
     const spoke = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     spoke.setAttribute('x1', cx); spoke.setAttribute('y1', cy);
@@ -128,7 +253,7 @@ function renderWheel() {
     nodesEl.appendChild(node);
   });
 
-  document.getElementById('wheelCount').textContent = ROUTINES.filter(r => r.active).length;
+  document.getElementById('wheelCount').textContent = state.routines.filter(r => r.active).length;
 }
 
 // ---------------------------------------------------------------------
@@ -186,7 +311,7 @@ function showCategory(catId) {
 
 function renderCategoryCards(cat) {
   const grid = document.getElementById('categoryCards');
-  let items = ROUTINES.filter(r => r.category === cat.id);
+  let items = state.routines.filter(r => r.category === cat.id);
   if (!state.showPaused) items = items.filter(r => r.active);
   items = items.slice().sort(prioritySort);
 
@@ -220,6 +345,10 @@ function renderCategoryCards(cat) {
     plantSection.appendChild(toggle);
     plantSection.appendChild(box);
   }
+
+  const addSection = document.getElementById('addRoutineSection');
+  addSection.innerHTML = addRoutineBlockHTML(cat.id);
+  wireAddRoutine(addSection, cat.id, () => renderCategoryCards(cat));
 }
 
 document.getElementById('backToWheel').addEventListener('click', () => { location.hash = ''; });
@@ -266,9 +395,8 @@ function renderList() {
   container.innerHTML = '';
 
   CATEGORIES.filter(c => state.listActiveCats.has(c.id)).forEach(cat => {
-    let items = ROUTINES.filter(r => r.category === cat.id);
+    let items = state.routines.filter(r => r.category === cat.id);
     if (!state.listShowPaused) items = items.filter(r => r.active);
-    if (!items.length) return;
     items = items.slice().sort(prioritySort);
 
     const section = document.createElement('div');
@@ -282,9 +410,12 @@ function renderList() {
         <span class="count">${items.length}</span>
       </div>
       <p class="cat-blurb">${cat.blurb}</p>
-      <div class="card-grid">${items.map(routineCardHTML).join('')}</div>
+      ${items.length ? `<div class="card-grid">${items.map(routineCardHTML).join('')}</div>` : '<div class="empty-state">Nothing here yet.</div>'}
+      <div class="add-routine-slot"></div>
     `;
     wireStarButtons(section, renderList);
+    section.querySelector('.add-routine-slot').innerHTML = addRoutineBlockHTML(cat.id);
+    wireAddRoutine(section, cat.id, renderList);
 
     container.appendChild(section);
 
@@ -441,7 +572,7 @@ function populateObsCategorySelect() {
 function populateObsRoutineSelect() {
   const catId = document.getElementById('obsCategorySelect').value;
   const sel = document.getElementById('obsRoutineSelect');
-  const routines = ROUTINES.filter(r => r.category === catId && r.active).sort((a, b) => a.focus.localeCompare(b.focus));
+  const routines = state.routines.filter(r => r.category === catId && r.active).sort((a, b) => a.focus.localeCompare(b.focus));
   sel.innerHTML = '<option value="">General</option>' + routines.map(r => `<option value="${r.focus}">${r.focus}</option>`).join('');
 }
 
@@ -495,7 +626,6 @@ async function deleteObservation(id) {
 }
 
 document.getElementById('addObsBtn').addEventListener('click', addObservation);
-populateObsCategorySelect();
 
 // ---------------------------------------------------------------------
 // Bi-Weekly Review — one card per active routine, grouped into a
@@ -503,7 +633,29 @@ populateObsCategorySelect();
 // ---------------------------------------------------------------------
 state.reviewOpenCats = new Set();
 
-function reviewableRoutines() { return ROUTINES.filter(r => r.active); }
+function reviewableRoutines() { return state.routines.filter(r => r.active); }
+
+function reviewSchedule() {
+  const anchor = new Date(REVIEW_ANCHOR_DATE + 'T00:00:00');
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(anchor);
+  while (due < today) due.setDate(due.getDate() + REVIEW_INTERVAL_DAYS);
+  const daysUntil = Math.round((due - today) / 86400000);
+  return { due, daysUntil };
+}
+
+function renderReviewScheduleBanner() {
+  const { due, daysUntil } = reviewSchedule();
+  const dateLabel = due.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+  let text;
+  if (daysUntil === 0) text = `📅 Today's a review day — ${dateLabel}`;
+  else if (daysUntil === 1) text = `📅 Next review: tomorrow, ${dateLabel}`;
+  else text = `📅 Next review: ${dateLabel} — in ${daysUntil} days`;
+
+  const el = document.getElementById('reviewScheduleBanner');
+  el.textContent = text;
+  el.classList.toggle('due-today', daysUntil === 0);
+}
 
 function ensureReviewAnswer(id) {
   state.reviewAnswers[id] = state.reviewAnswers[id] || { serving: '', notes: '' };
@@ -672,5 +824,15 @@ renderListChips();
 renderList();
 setMode(localGet('routineHub.mode', 'wheel'));
 renderReviewForm();
+renderReviewScheduleBanner();
+populateObsCategorySelect();
 loadObservations();
 loadReviews();
+
+loadRoutines().then(() => {
+  renderWheel();
+  routeOverview();
+  renderList();
+  renderReviewForm();
+  populateObsRoutineSelect();
+});

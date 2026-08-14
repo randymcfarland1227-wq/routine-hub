@@ -1,6 +1,10 @@
 // Snapshot of routines from the "Routines" Google Sheet.
 // Edit this file directly when routines change, or ask Claude to re-sync it from the Sheet.
 
+// Bi-Weekly Review cadence: first review is this date, then repeats every REVIEW_INTERVAL_DAYS.
+const REVIEW_ANCHOR_DATE = '2026-08-15';
+const REVIEW_INTERVAL_DAYS = 14;
+
 const CATEGORIES = [
   { id: 'mind',       label: 'Mind',       icon: '🧠', blurb: 'Mental clarity, reflection, learning' },
   { id: 'body',       label: 'Body',       icon: '💪', blurb: 'Fitness, nourishment, physical self-care' },

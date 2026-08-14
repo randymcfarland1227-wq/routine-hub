@@ -5,17 +5,23 @@
  * Endpoints (all on the same Web App URL):
  *   GET  ?action=observations   -> [{id, date, category, routine, observation, action}]
  *   GET  ?action=reviews        -> [{date, category, routine, serving, notes, why}]
+ *   GET  ?action=routines       -> [{id, category, focus, why, what, frequency, freq, duration, object, active, dateAdded}]
  *   POST {action:'addObservation', observation, practice, category, routine} -> the new row
  *   POST {action:'deleteObservation', id}
  *   POST {action:'addReviewBatch', rows:[{date, category, routine, serving, notes, why}, ...]}
+ *   POST {action:'addRoutine', category, focus, why, what, frequency, freq, duration, object, active} -> the new row
+ *   POST {action:'deleteRoutine', id}
+ *   POST {action:'seedRoutines', rows:[...]} -> only runs if the Site Routines tab is still empty
  */
 
 var REVIEWS_SHEET_NAME = 'Reviews';
+var ROUTINES_SHEET_NAME = 'Site Routines';
 
 function doGet(e) {
   var action = e.parameter.action;
   if (action === 'observations') return jsonOut(getObservations());
   if (action === 'reviews') return jsonOut(getReviews());
+  if (action === 'routines') return jsonOut(getRoutines());
   return jsonOut({ error: 'unknown action' });
 }
 
@@ -26,6 +32,9 @@ function doPost(e) {
   if (action === 'addObservation') return jsonOut(addObservation(body));
   if (action === 'deleteObservation') return jsonOut(deleteObservation(body.id));
   if (action === 'addReviewBatch') return jsonOut(addReviewBatch(body.rows || []));
+  if (action === 'addRoutine') return jsonOut(addRoutine(body));
+  if (action === 'deleteRoutine') return jsonOut(deleteRoutine(body.id));
+  if (action === 'seedRoutines') return jsonOut(seedRoutines(body.rows || []));
 
   return jsonOut({ error: 'unknown action' });
 }
@@ -185,6 +194,84 @@ function addReviewBatch(rows) {
   });
   sheet.getRange(sheet.getLastRow() + 1, 1, values.length, REVIEWS_HEADERS.length).setValues(values);
   return { ok: true, count: values.length };
+}
+
+// ---------------------------------------------------------------------
+// Routines — lives in its own auto-created "Site Routines" tab, kept
+// separate from your original hand-formatted tabs. Seeded once (via
+// seedRoutines) from whatever the site already had baked in, then this
+// sheet becomes the source of truth for add/delete from the site.
+// ---------------------------------------------------------------------
+
+var ROUTINES_HEADERS = ['ID', 'Category', 'Focus', 'Why', 'What', 'Frequency', 'FreqWeight', 'Duration', 'Object', 'Active', 'DateAdded'];
+
+function getRoutinesSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(ROUTINES_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(ROUTINES_SHEET_NAME);
+    sheet.appendRow(ROUTINES_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getRoutines() {
+  var sheet = getRoutinesSheet();
+  var data = sheet.getDataRange().getValues();
+  var out = [];
+  for (var r = 1; r < data.length; r++) {
+    if (!data[r][0]) continue;
+    out.push({
+      id: data[r][0],
+      category: data[r][1],
+      focus: data[r][2],
+      why: data[r][3],
+      what: data[r][4],
+      frequency: data[r][5],
+      freq: data[r][6],
+      duration: data[r][7],
+      object: data[r][8],
+      active: data[r][9] === true || data[r][9] === 'TRUE' || data[r][9] === 'true',
+      dateAdded: formatDate(data[r][10]),
+    });
+  }
+  return out;
+}
+
+function routineRow(body, id, dateAdded) {
+  return [id, body.category, body.focus, body.why || '', body.what || '', body.frequency, body.freq, body.duration || '', body.object || '', body.active !== false, dateAdded];
+}
+
+function addRoutine(body) {
+  var sheet = getRoutinesSheet();
+  var id = body.category + '-' + new Date().getTime();
+  var dateAdded = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  sheet.appendRow(routineRow(body, id, dateAdded));
+  return { id: id, dateAdded: dateAdded };
+}
+
+function deleteRoutine(id) {
+  var sheet = getRoutinesSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][0]) === String(id)) {
+      sheet.deleteRow(r + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: false };
+}
+
+// Only seeds if the tab has no data rows yet — safe to call every time from the client.
+function seedRoutines(rows) {
+  var sheet = getRoutinesSheet();
+  if (sheet.getLastRow() > 1 || !rows.length) return { ok: true, seeded: 0 };
+  var values = rows.map(function (r) {
+    return [r.id, r.category, r.focus, r.why || '', r.what || '', r.frequency, r.freq, r.duration || '', r.object || '', r.active !== false, r.dateAdded || ''];
+  });
+  sheet.getRange(2, 1, values.length, ROUTINES_HEADERS.length).setValues(values);
+  return { ok: true, seeded: values.length };
 }
 
 function formatDate(val) {
