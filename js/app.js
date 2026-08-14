@@ -345,6 +345,9 @@ function localSet(key, value) { localStorage.setItem(key, JSON.stringify(value))
 // ---------------------------------------------------------------------
 // Observations
 // ---------------------------------------------------------------------
+state.obsSearch = '';
+state.obsCategoryFilter = 'all';
+
 async function loadObservations() {
   document.getElementById('obsSetupNote').style.display = connected() ? 'none' : 'block';
   if (connected()) {
@@ -353,47 +356,119 @@ async function loadObservations() {
   } else {
     state.observations = localGet('routineHub.observations.local', []);
   }
+  renderObsFilterChips();
   renderObservations();
+}
+
+function categoryMeta(id) { return CATEGORIES.find(c => c.id === id); }
+
+function renderObsFilterChips() {
+  const row = document.getElementById('obsFilterChips');
+  const counts = {};
+  state.observations.forEach(o => { counts[o.category] = (counts[o.category] || 0) + 1; });
+
+  const chips = [{ id: 'all', label: 'All', icon: '', count: state.observations.length }]
+    .concat(CATEGORIES.map(c => ({ id: c.id, label: c.label, icon: c.icon, count: counts[c.id] || 0 })));
+
+  row.innerHTML = chips.map(c => `
+    <div class="chip${state.obsCategoryFilter === c.id ? ' active' : ''}" data-cat="${c.id}" style="--dot: ${c.id === 'all' ? 'var(--text-faint)' : `var(--c-${c.id})`}">
+      <span class="dot"></span>${c.icon ? c.icon + ' ' : ''}${c.label}${c.count ? ` · ${c.count}` : ''}
+    </div>
+  `).join('');
+
+  row.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      state.obsCategoryFilter = chip.dataset.cat;
+      renderObsFilterChips();
+      renderObservations();
+    });
+  });
+}
+
+function filteredObservations() {
+  const q = state.obsSearch.trim().toLowerCase();
+  return state.observations.filter(o => {
+    if (state.obsCategoryFilter !== 'all' && o.category !== state.obsCategoryFilter) return false;
+    if (!q) return true;
+    return `${o.observation} ${o.action} ${o.routine || ''}`.toLowerCase().includes(q);
+  });
 }
 
 function renderObservations() {
   const list = document.getElementById('obsList');
-  if (!state.observations.length) {
-    list.innerHTML = '<div class="empty-state">No observations logged yet.</div>';
+  const items = filteredObservations();
+  if (!items.length) {
+    list.innerHTML = `<div class="empty-state">${state.observations.length ? 'Nothing matches that search/filter.' : 'No observations logged yet.'}</div>`;
     return;
   }
-  list.innerHTML = '';
-  state.observations.slice().reverse().forEach(o => {
-    const card = document.createElement('div');
-    card.className = 'obs-card';
-    card.innerHTML = `
+  const sorted = items.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.id > a.id ? 1 : -1));
+  list.innerHTML = sorted.map(o => {
+    const cat = categoryMeta(o.category);
+    return `
+    <div class="obs-card" style="--cat: ${cat ? `var(--c-${cat.id})` : 'var(--text-faint)'}">
+      <div class="obs-card-head">
+        ${cat ? `<span class="obs-cat-badge">${cat.icon} ${cat.label}</span>` : ''}
+        ${o.routine ? `<span class="obs-routine-badge">${o.routine}</span>` : ''}
+        <span class="obs-date">${o.date || ''}</span>
+      </div>
       <div class="txt">
         <p><span class="label">Observation</span></p>
         <p class="obs">${o.observation}</p>
         <p><span class="label">Action / Practice</span></p>
         <p class="act">${o.action}</p>
       </div>
-      <button class="icon-btn" title="Delete">✕</button>
-    `;
-    card.querySelector('.icon-btn').addEventListener('click', () => deleteObservation(o.id));
-    list.appendChild(card);
+      <button class="icon-btn" title="Delete" data-id="${o.id}">✕</button>
+    </div>
+  `;
+  }).join('');
+  list.querySelectorAll('.icon-btn').forEach(btn => {
+    btn.addEventListener('click', () => deleteObservation(btn.dataset.id));
   });
 }
+
+document.getElementById('obsSearch').addEventListener('input', e => {
+  state.obsSearch = e.target.value;
+  renderObservations();
+});
+
+function populateObsCategorySelect() {
+  const sel = document.getElementById('obsCategorySelect');
+  sel.innerHTML = CATEGORIES.map(c => `<option value="${c.id}">${c.icon} ${c.label}</option>`).join('');
+  sel.addEventListener('change', populateObsRoutineSelect);
+  populateObsRoutineSelect();
+}
+
+function populateObsRoutineSelect() {
+  const catId = document.getElementById('obsCategorySelect').value;
+  const sel = document.getElementById('obsRoutineSelect');
+  const routines = ROUTINES.filter(r => r.category === catId && r.active).sort((a, b) => a.focus.localeCompare(b.focus));
+  sel.innerHTML = '<option value="">General</option>' + routines.map(r => `<option value="${r.focus}">${r.focus}</option>`).join('');
+}
+
+document.getElementById('obsAddToggle').addEventListener('click', () => {
+  const panel = document.getElementById('obsAddPanel');
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : '';
+  document.getElementById('obsAddToggle').textContent = open ? '+ Add an observation' : '− Close';
+});
 
 async function addObservation() {
   const obsInput = document.getElementById('obsInput');
   const actInput = document.getElementById('actInput');
+  const category = document.getElementById('obsCategorySelect').value;
+  const routine = document.getElementById('obsRoutineSelect').value;
   const status = document.getElementById('obsStatus');
   const observation = obsInput.value.trim();
   const practice = actInput.value.trim();
   if (!observation || !practice) { status.textContent = 'Fill in both fields.'; return; }
 
   status.textContent = 'Saving...';
-  const entry = { id: Date.now(), observation, action: practice };
+  const today = new Date().toISOString().slice(0, 10);
+  const entry = { id: Date.now(), observation, action: practice, category, routine, date: today };
 
   if (connected()) {
     try {
-      const saved = await apiPost('addObservation', { observation, practice });
+      const saved = await apiPost('addObservation', { observation, practice, category, routine });
       state.observations.push(saved && saved.id ? saved : entry);
     } catch { status.textContent = 'Could not save to your Sheet.'; return; }
   } else {
@@ -402,12 +477,14 @@ async function addObservation() {
   }
 
   obsInput.value = ''; actInput.value = ''; status.textContent = 'Saved.';
+  renderObsFilterChips();
   renderObservations();
   setTimeout(() => status.textContent = '', 2000);
 }
 
 async function deleteObservation(id) {
-  state.observations = state.observations.filter(o => o.id !== id);
+  state.observations = state.observations.filter(o => String(o.id) !== String(id));
+  renderObsFilterChips();
   renderObservations();
   if (connected()) {
     try { await apiPost('deleteObservation', { id }); }
@@ -418,49 +495,98 @@ async function deleteObservation(id) {
 }
 
 document.getElementById('addObsBtn').addEventListener('click', addObservation);
+populateObsCategorySelect();
 
 // ---------------------------------------------------------------------
-// Bi-Weekly Review
+// Bi-Weekly Review — one card per active routine, grouped into a
+// collapsible accordion by category.
 // ---------------------------------------------------------------------
-function representativeWhy(catId) {
-  const active = ROUTINES.filter(r => r.category === catId && r.active);
-  if (!active.length) return '';
-  return active[Math.floor(active.length / 2)].why;
+state.reviewOpenCats = new Set();
+
+function reviewableRoutines() { return ROUTINES.filter(r => r.active); }
+
+function ensureReviewAnswer(id) {
+  state.reviewAnswers[id] = state.reviewAnswers[id] || { serving: '', notes: '' };
+  return state.reviewAnswers[id];
+}
+
+function updateReviewProgress() {
+  const all = reviewableRoutines();
+  const done = all.filter(r => state.reviewAnswers[r.id] && state.reviewAnswers[r.id].serving).length;
+  const pct = all.length ? Math.round((done / all.length) * 100) : 0;
+  document.getElementById('reviewProgressFill').style.width = pct + '%';
+  document.getElementById('reviewProgressLabel').textContent = `${done} of ${all.length} reviewed`;
 }
 
 function renderReviewForm() {
   const form = document.getElementById('reviewForm');
   form.innerHTML = '';
+
   CATEGORIES.forEach(cat => {
-    state.reviewAnswers[cat.id] = state.reviewAnswers[cat.id] || { serving: '', roadblocks: '', why: representativeWhy(cat.id), notes: '' };
-    const box = document.createElement('div');
-    box.className = 'review-cat';
-    box.style.setProperty('--cat', `var(--c-${cat.id})`);
-    box.innerHTML = `
-      <div class="review-cat-head"><span class="icon">${cat.icon}</span><h4>${cat.label}</h4></div>
-      <p class="why-remind">Reminder — ${state.reviewAnswers[cat.id].why || 'why did this category matter to you?'}</p>
-      <div class="serving-row">
-        ${['Yes', 'Mixed', 'No'].map(v => `<button data-val="${v}">${v}</button>`).join('')}
+    const items = reviewableRoutines().filter(r => r.category === cat.id);
+    if (!items.length) return;
+    const doneCount = items.filter(r => state.reviewAnswers[r.id] && state.reviewAnswers[r.id].serving).length;
+    const open = state.reviewOpenCats.has(cat.id);
+
+    const section = document.createElement('div');
+    section.className = 'review-accordion' + (open ? ' open' : '');
+    section.style.setProperty('--cat', `var(--c-${cat.id})`);
+    section.innerHTML = `
+      <button class="review-accordion-head">
+        <span class="icon">${cat.icon}</span>
+        <h4>${cat.label}</h4>
+        <span class="review-accordion-count">${doneCount}/${items.length}</span>
+        <span class="review-accordion-chevron">⌄</span>
+      </button>
+      <div class="review-accordion-body">
+        ${items.map(r => reviewRoutineHTML(r)).join('')}
       </div>
-      <div class="field"><label>Roadblocks</label><textarea placeholder="What's getting in the way?">${state.reviewAnswers[cat.id].roadblocks}</textarea></div>
-      <div class="field" style="margin-bottom:0"><label>Notes / adjustments</label><textarea placeholder="Anything to change going forward?">${state.reviewAnswers[cat.id].notes}</textarea></div>
     `;
 
-    const buttons = box.querySelectorAll('.serving-row button');
-    buttons.forEach(b => {
-      if (b.dataset.val === state.reviewAnswers[cat.id].serving) b.classList.add('sel');
-      b.addEventListener('click', () => {
-        buttons.forEach(x => x.classList.remove('sel'));
-        b.classList.add('sel');
-        state.reviewAnswers[cat.id].serving = b.dataset.val;
-      });
+    section.querySelector('.review-accordion-head').addEventListener('click', () => {
+      if (state.reviewOpenCats.has(cat.id)) state.reviewOpenCats.delete(cat.id);
+      else state.reviewOpenCats.add(cat.id);
+      renderReviewForm();
     });
-    const textareas = box.querySelectorAll('textarea');
-    textareas[0].addEventListener('input', e => state.reviewAnswers[cat.id].roadblocks = e.target.value);
-    textareas[1].addEventListener('input', e => state.reviewAnswers[cat.id].notes = e.target.value);
 
-    form.appendChild(box);
+    items.forEach(r => {
+      const row = section.querySelector(`[data-routine-id="${cssEscape(r.id)}"]`);
+      const ans = ensureReviewAnswer(r.id);
+      const buttons = row.querySelectorAll('.serving-row button');
+      buttons.forEach(b => {
+        if (b.dataset.val === ans.serving) b.classList.add('sel');
+        b.addEventListener('click', () => {
+          buttons.forEach(x => x.classList.remove('sel'));
+          b.classList.add('sel');
+          ans.serving = b.dataset.val;
+          updateReviewProgress();
+        });
+      });
+      row.querySelector('.review-notes-input').addEventListener('input', e => { ans.notes = e.target.value; });
+    });
+
+    form.appendChild(section);
   });
+
+  updateReviewProgress();
+}
+
+function cssEscape(s) { return String(s).replace(/"/g, '\\"'); }
+
+function reviewRoutineHTML(r) {
+  const ans = ensureReviewAnswer(r.id);
+  return `
+    <div class="review-routine" data-routine-id="${r.id}">
+      <div class="review-routine-top">
+        <span class="review-routine-title">${r.focus}</span>
+        <div class="serving-row">
+          ${['Yes', 'Mixed', 'No'].map(v => `<button data-val="${v}">${v}</button>`).join('')}
+        </div>
+      </div>
+      <p class="why-remind">Reminder — ${r.why}</p>
+      <input class="review-notes-input" type="text" placeholder="Roadblocks or notes (optional)" value="${(ans.notes || '').replace(/"/g, '&quot;')}">
+    </div>
+  `;
 }
 
 async function loadReviews() {
@@ -480,18 +606,25 @@ function renderReviewHistory(reviews) {
   if (!reviews.length) { el.innerHTML = '<div class="empty-state">No reviews saved yet.</div>'; return; }
   const byDate = {};
   reviews.forEach(r => { (byDate[r.date] = byDate[r.date] || []).push(r); });
-  el.innerHTML = Object.keys(byDate).sort().reverse().map(date => `
-    <div style="margin-bottom:14px">
-      <div class="rdate">${date}</div>
-      ${byDate[date].map(r => `
+  el.innerHTML = Object.keys(byDate).sort().reverse().map(date => {
+    const entries = byDate[date];
+    const counts = { Yes: 0, Mixed: 0, No: 0 };
+    entries.forEach(r => { if (counts[r.serving] !== undefined) counts[r.serving]++; });
+    return `
+    <div class="review-session">
+      <div class="review-session-head">
+        <span class="rdate">${date}</span>
+        <span class="review-session-summary">${counts.Yes} yes · ${counts.Mixed} mixed · ${counts.No} no</span>
+      </div>
+      ${entries.map(r => `
         <div class="review-entry" style="--cat:var(--c-${slugFor(r.category)})">
-          <span class="rcat">${r.category} — serving me: ${r.serving || '—'}</span>
-          ${r.roadblocks ? `<p><b>Roadblocks:</b> ${r.roadblocks}</p>` : ''}
-          ${r.notes ? `<p><b>Notes:</b> ${r.notes}</p>` : ''}
+          <span class="rcat">${r.routine || r.category} <span class="review-serving-tag review-serving-${(r.serving || '').toLowerCase()}">${r.serving || '—'}</span></span>
+          ${r.notes ? `<p>${r.notes}</p>` : ''}
         </div>
       `).join('')}
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function slugFor(label) {
@@ -502,32 +635,29 @@ function slugFor(label) {
 async function saveReview() {
   const status = document.getElementById('reviewStatus');
   const date = new Date().toISOString().slice(0, 10);
-  const rows = CATEGORIES.map(cat => ({
-    date,
-    category: cat.label,
-    serving: state.reviewAnswers[cat.id].serving,
-    roadblocks: state.reviewAnswers[cat.id].roadblocks,
-    why: state.reviewAnswers[cat.id].why,
-    notes: state.reviewAnswers[cat.id].notes,
-  })).filter(r => r.serving || r.roadblocks || r.notes);
+  const rows = reviewableRoutines().map(r => {
+    const ans = state.reviewAnswers[r.id] || {};
+    const cat = categoryMeta(r.category);
+    return { date, category: cat.label, routine: r.focus, serving: ans.serving || '', notes: ans.notes || '', why: r.why };
+  }).filter(r => r.serving || r.notes);
 
-  if (!rows.length) { status.textContent = 'Nothing to save yet — mark at least one category.'; return; }
+  if (!rows.length) { status.textContent = 'Nothing to save yet — mark at least one routine.'; return; }
   status.textContent = 'Saving...';
 
   if (connected()) {
-    try {
-      for (const row of rows) await apiPost('addReview', row);
-    } catch { status.textContent = 'Could not save to your Sheet.'; return; }
+    try { await apiPost('addReviewBatch', { rows }); }
+    catch { status.textContent = 'Could not save to your Sheet.'; return; }
   } else {
     const existing = localGet('routineHub.reviews.local', []);
     localSet('routineHub.reviews.local', existing.concat(rows));
   }
 
-  status.textContent = 'Review saved.';
+  status.textContent = `Saved ${rows.length} routine review${rows.length === 1 ? '' : 's'}.`;
   state.reviewAnswers = {};
+  state.reviewOpenCats = new Set();
   renderReviewForm();
   loadReviews();
-  setTimeout(() => status.textContent = '', 2500);
+  setTimeout(() => status.textContent = '', 3000);
 }
 
 document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
