@@ -6,22 +6,27 @@
  *   GET  ?action=observations   -> [{id, date, category, routine, observation, action}]
  *   GET  ?action=reviews        -> [{date, category, routine, serving, notes, why}]
  *   GET  ?action=routines       -> [{id, category, focus, why, what, frequency, freq, duration, object, active, dateAdded}]
+ *   GET  ?action=inbox          -> [{id, text, dateAdded}]
  *   POST {action:'addObservation', observation, practice, category, routine} -> the new row
  *   POST {action:'deleteObservation', id}
  *   POST {action:'addReviewBatch', rows:[{date, category, routine, serving, notes, why}, ...]}
  *   POST {action:'addRoutine', category, focus, why, what, frequency, freq, duration, object, active} -> the new row
  *   POST {action:'deleteRoutine', id}
  *   POST {action:'seedRoutines', rows:[...]} -> only runs if the Site Routines tab is still empty
+ *   POST {action:'addInboxItem', text} -> the new row
+ *   POST {action:'deleteInboxItem', id}
  */
 
 var REVIEWS_SHEET_NAME = 'Reviews';
 var ROUTINES_SHEET_NAME = 'Site Routines';
+var INBOX_SHEET_NAME = 'Inbox';
 
 function doGet(e) {
   var action = e.parameter.action;
   if (action === 'observations') return jsonOut(getObservations());
   if (action === 'reviews') return jsonOut(getReviews());
   if (action === 'routines') return jsonOut(getRoutines());
+  if (action === 'inbox') return jsonOut(getInbox());
   return jsonOut({ error: 'unknown action' });
 }
 
@@ -35,6 +40,8 @@ function doPost(e) {
   if (action === 'addRoutine') return jsonOut(addRoutine(body));
   if (action === 'deleteRoutine') return jsonOut(deleteRoutine(body.id));
   if (action === 'seedRoutines') return jsonOut(seedRoutines(body.rows || []));
+  if (action === 'addInboxItem') return jsonOut(addInboxItem(body));
+  if (action === 'deleteInboxItem') return jsonOut(deleteInboxItem(body.id));
 
   return jsonOut({ error: 'unknown action' });
 }
@@ -272,6 +279,56 @@ function seedRoutines(rows) {
   });
   sheet.getRange(2, 1, values.length, ROUTINES_HEADERS.length).setValues(values);
   return { ok: true, seeded: values.length };
+}
+
+// ---------------------------------------------------------------------
+// Inbox — quick-capture ideas for routines, sorted into "Site Routines"
+// later from the site (which also deletes the row from here). Lives in
+// its own auto-created "Inbox" tab.
+// ---------------------------------------------------------------------
+
+var INBOX_HEADERS = ['ID', 'Text', 'DateAdded'];
+
+function getInboxSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(INBOX_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(INBOX_SHEET_NAME);
+    sheet.appendRow(INBOX_HEADERS);
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function getInbox() {
+  var sheet = getInboxSheet();
+  var data = sheet.getDataRange().getValues();
+  var out = [];
+  for (var r = 1; r < data.length; r++) {
+    if (!data[r][0]) continue;
+    out.push({ id: data[r][0], text: data[r][1], dateAdded: formatDate(data[r][2]) });
+  }
+  return out;
+}
+
+function addInboxItem(body) {
+  var sheet = getInboxSheet();
+  var id = new Date().getTime();
+  var dateAdded = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  sheet.appendRow([id, body.text, dateAdded]);
+  return { id: id, text: body.text, dateAdded: dateAdded };
+}
+
+function deleteInboxItem(id) {
+  var sheet = getInboxSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var r = 1; r < data.length; r++) {
+    if (String(data[r][0]) === String(id)) {
+      sheet.deleteRow(r + 1);
+      return { ok: true };
+    }
+  }
+  return { ok: false };
 }
 
 function formatDate(val) {

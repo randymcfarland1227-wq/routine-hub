@@ -474,6 +474,168 @@ function localGet(key, fallback) {
 function localSet(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
 
 // ---------------------------------------------------------------------
+// Inbox — quick capture for routine ideas, sorted into full routines
+// later (reuses the same addRoutine() used by the per-category "+ Add
+// a routine" panel — the sort form is just that panel with a Category
+// select bolted on).
+// ---------------------------------------------------------------------
+state.inbox = [];
+
+async function loadInbox() {
+  document.getElementById('inboxSetupNote').style.display = connected() ? 'none' : 'block';
+  if (connected()) {
+    try { state.inbox = (await apiGet('inbox')) || []; }
+    catch { state.inbox = []; document.getElementById('inboxStatus').textContent = 'Could not reach your Sheet.'; }
+  } else {
+    state.inbox = localGet('routineHub.inbox.local', []);
+  }
+  renderInbox();
+}
+
+function inboxSortPanelHTML(item) {
+  return `
+    <div class="field">
+      <label>Category</label>
+      <select class="ar-category">${CATEGORIES.map(c => `<option value="${c.id}">${c.icon} ${c.label}</option>`).join('')}</select>
+    </div>
+    <div class="field">
+      <label>Focus</label>
+      <input type="text" class="ar-focus" value="${(item.text || '').replace(/"/g, '&quot;')}">
+    </div>
+    <div class="field">
+      <label>Why</label>
+      <input type="text" class="ar-why" placeholder="Why does this matter?">
+    </div>
+    <div class="field">
+      <label>What</label>
+      <input type="text" class="ar-what" placeholder="What does doing it look like?">
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Frequency</label>
+        <select class="ar-frequency">
+          <option value="Daily|7">Daily</option>
+          <option value="4x / week|4">4x / week</option>
+          <option value="3x / week|3">3x / week</option>
+          <option value="2x / week|2">2x / week</option>
+          <option value="Weekly|1" selected>Weekly</option>
+          <option value="Bi-weekly|0.5">Bi-weekly</option>
+          <option value="Monthly|0.25">Monthly</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Duration <span class="optional">optional</span></label>
+        <input type="text" class="ar-duration" placeholder="e.g. 20 mins">
+      </div>
+    </div>
+    <div class="field">
+      <label>Needs <span class="optional">optional</span></label>
+      <input type="text" class="ar-object" placeholder="e.g. Yoga mat">
+    </div>
+    <button class="btn ar-submit">Add as routine</button>
+    <button class="btn secondary ar-cancel">Cancel</button>
+    <div class="status-msg ar-status"></div>
+  `;
+}
+
+function inboxItemHTML(item) {
+  return `
+    <div class="inbox-item" data-id="${item.id}">
+      <div class="inbox-item-top">
+        <span class="inbox-item-text">${item.text}</span>
+        <span class="inbox-item-date">${item.dateAdded || ''}</span>
+      </div>
+      <div class="inbox-item-actions">
+        <button class="btn secondary inbox-sort-toggle" data-id="${item.id}">Sort into a routine</button>
+        <button class="icon-btn inbox-discard-btn" data-id="${item.id}" title="Discard">✕</button>
+      </div>
+      <div class="panel inbox-sort-panel" data-id="${item.id}" style="display:none"></div>
+    </div>
+  `;
+}
+
+function renderInbox() {
+  const list = document.getElementById('inboxList');
+  if (!state.inbox.length) { list.innerHTML = '<div class="empty-state">Nothing waiting to be sorted.</div>'; return; }
+
+  const sorted = state.inbox.slice().sort((a, b) => (b.id > a.id ? 1 : -1));
+  list.innerHTML = sorted.map(inboxItemHTML).join('');
+
+  list.querySelectorAll('.inbox-discard-btn').forEach(btn => {
+    btn.addEventListener('click', () => discardInboxItem(btn.dataset.id));
+  });
+
+  list.querySelectorAll('.inbox-sort-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = state.inbox.find(i => String(i.id) === btn.dataset.id);
+      const panel = list.querySelector(`.inbox-sort-panel[data-id="${cssEscape(btn.dataset.id)}"]`);
+      const open = panel.style.display !== 'none';
+      if (open) { panel.style.display = 'none'; panel.innerHTML = ''; btn.textContent = 'Sort into a routine'; return; }
+
+      panel.innerHTML = inboxSortPanelHTML(item);
+      panel.style.display = '';
+      btn.textContent = 'Cancel sorting';
+
+      panel.querySelector('.ar-cancel').addEventListener('click', () => {
+        panel.style.display = 'none';
+        panel.innerHTML = '';
+        btn.textContent = 'Sort into a routine';
+      });
+      panel.querySelector('.ar-submit').addEventListener('click', () => {
+        const catId = panel.querySelector('.ar-category').value;
+        addRoutine(catId, panel, () => {
+          renderWheel();
+          routeOverview();
+          renderList();
+          discardInboxItem(item.id, true);
+        });
+      });
+    });
+  });
+}
+
+async function addInboxItem() {
+  const input = document.getElementById('inboxInput');
+  const status = document.getElementById('inboxStatus');
+  const text = input.value.trim();
+  if (!text) return;
+  status.textContent = 'Saving...';
+
+  const today = new Date().toISOString().slice(0, 10);
+  const localEntry = { id: Date.now(), text, dateAdded: today };
+
+  if (connected()) {
+    try {
+      const saved = await apiPost('addInboxItem', { text });
+      state.inbox.push(saved && saved.id ? saved : localEntry);
+    } catch { status.textContent = 'Could not save to your Sheet.'; return; }
+  } else {
+    state.inbox.push(localEntry);
+    localSet('routineHub.inbox.local', state.inbox);
+  }
+
+  input.value = '';
+  status.textContent = '';
+  renderInbox();
+}
+
+async function discardInboxItem(id, silent) {
+  state.inbox = state.inbox.filter(i => String(i.id) !== String(id));
+  renderInbox();
+  if (connected()) {
+    try { await apiPost('deleteInboxItem', { id }); }
+    catch { if (!silent) document.getElementById('inboxStatus').textContent = 'Delete failed to sync to your Sheet.'; }
+  } else {
+    localSet('routineHub.inbox.local', state.inbox);
+  }
+}
+
+document.getElementById('inboxAddBtn').addEventListener('click', addInboxItem);
+document.getElementById('inboxInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addInboxItem();
+});
+
+// ---------------------------------------------------------------------
 // Observations
 // ---------------------------------------------------------------------
 state.obsSearch = '';
@@ -828,6 +990,7 @@ renderReviewScheduleBanner();
 populateObsCategorySelect();
 loadObservations();
 loadReviews();
+loadInbox();
 
 loadRoutines().then(() => {
   renderWheel();

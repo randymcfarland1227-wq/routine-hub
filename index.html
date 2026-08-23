@@ -17,6 +17,7 @@
   <div class="wrap tabs-scroll">
     <nav class="tabs">
       <button data-view="overview" class="active">🧭 Overview</button>
+      <button data-view="inbox">📥 Inbox</button>
       <button data-view="observations">📝 Observations</button>
       <button data-view="review">🔄 Bi-Weekly Review</button>
     </nav>
@@ -82,6 +83,26 @@
       <div id="catSections"></div>
     </div>
 
+  </section>
+
+  <!-- ===================== INBOX ===================== -->
+  <section id="inbox" class="view">
+    <div class="section-head">
+      <h2 class="section-title">Inbox</h2>
+      <p class="section-intro">A quick place to drop an idea for a new routine before you've decided where it fits. Come back later and sort each one into a category — or discard it.</p>
+    </div>
+
+    <div id="inboxSetupNote" class="setup-note" style="display:none">
+      Not connected to your Sheet yet, so this is local to this browser for now. Deploy <code>Code.gs</code> and paste the Web App URL into <code>js/config.js</code> to sync — see <code>SETUP.md</code>.
+    </div>
+
+    <div class="inbox-add-row">
+      <input type="text" id="inboxInput" placeholder="Jot something down…">
+      <button class="btn" id="inboxAddBtn">Add</button>
+    </div>
+    <div class="status-msg" id="inboxStatus"></div>
+
+    <div id="inboxList" class="inbox-list"></div>
   </section>
 
   <!-- ===================== OBSERVATIONS ===================== -->
