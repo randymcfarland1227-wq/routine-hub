@@ -615,7 +615,8 @@ async function addInboxItem() {
   }
 
   input.value = '';
-  status.textContent = '';
+  status.textContent = 'Added.';
+  setTimeout(() => status.textContent = '', 1500);
   renderInbox();
 }
 
