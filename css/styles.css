@@ -700,11 +700,13 @@ main { padding-top: 20px; }
   margin-left: auto;
 }
 
-.obs-card .icon-btn { position: absolute; top: 10px; right: 10px; }
+.obs-card-actions { position: absolute; top: 10px; right: 10px; display: flex; gap: 2px; }
 
 .obs-card .txt p { margin: 0 0 5px; font-size: 0.88rem; line-height: 1.45; }
 .obs-card .txt .label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-faint); font-weight: 700; }
-.obs-card .txt .obs { color: var(--text); padding-right: 20px; }
+.obs-card .txt .obs { color: var(--text); padding-right: 40px; }
+.obs-card .field { margin-bottom: 10px; }
+.obs-card .field textarea { min-height: 56px; }
 .obs-card .txt .act { color: var(--text-muted); }
 
 .icon-btn {

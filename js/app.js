@@ -641,6 +641,7 @@ document.getElementById('inboxInput').addEventListener('keydown', e => {
 // ---------------------------------------------------------------------
 state.obsSearch = '';
 state.obsCategoryFilter = 'all';
+state.editingObsId = null;
 
 async function loadObservations() {
   document.getElementById('obsSetupNote').style.display = connected() ? 'none' : 'block';
@@ -698,6 +699,7 @@ function renderObservations() {
   const sorted = items.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.id > a.id ? 1 : -1));
   list.innerHTML = sorted.map(o => {
     const cat = categoryMeta(o.category);
+    const editing = String(state.editingObsId) === String(o.id);
     return `
     <div class="obs-card" style="--cat: ${cat ? `var(--c-${cat.id})` : 'var(--text-faint)'}">
       <div class="obs-card-head">
@@ -705,19 +707,70 @@ function renderObservations() {
         ${o.routine ? `<span class="obs-routine-badge">${o.routine}</span>` : ''}
         <span class="obs-date">${o.date || ''}</span>
       </div>
+      ${editing ? `
+      <div class="field">
+        <label>Observation</label>
+        <textarea class="obs-edit-observation">${escapeHtml(o.observation)}</textarea>
+      </div>
+      <div class="field">
+        <label>Action / Practice</label>
+        <textarea class="obs-edit-action">${escapeHtml(o.action)}</textarea>
+      </div>
+      <button class="btn obs-save-btn" data-id="${o.id}">Save</button>
+      <button class="btn secondary obs-cancel-btn">Cancel</button>
+      <div class="status-msg obs-edit-status"></div>
+      ` : `
       <div class="txt">
         <p><span class="label">Observation</span></p>
         <p class="obs">${o.observation}</p>
         <p><span class="label">Action / Practice</span></p>
         <p class="act">${o.action}</p>
       </div>
-      <button class="icon-btn" title="Delete" data-id="${o.id}">✕</button>
+      `}
+      <div class="obs-card-actions">
+        ${!editing ? `<button class="icon-btn obs-edit-btn" title="Edit" data-id="${o.id}">✎</button>` : ''}
+        <button class="icon-btn obs-delete-btn" title="Delete" data-id="${o.id}">✕</button>
+      </div>
     </div>
   `;
   }).join('');
-  list.querySelectorAll('.icon-btn').forEach(btn => {
+
+  list.querySelectorAll('.obs-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => { state.editingObsId = btn.dataset.id; renderObservations(); });
+  });
+  list.querySelectorAll('.obs-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', () => { state.editingObsId = null; renderObservations(); });
+  });
+  list.querySelectorAll('.obs-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => saveObservationEdit(btn.dataset.id, btn.closest('.obs-card')));
+  });
+  list.querySelectorAll('.obs-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => deleteObservation(btn.dataset.id));
   });
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function saveObservationEdit(id, card) {
+  const status = card.querySelector('.obs-edit-status');
+  const observation = card.querySelector('.obs-edit-observation').value.trim();
+  const practice = card.querySelector('.obs-edit-action').value.trim();
+  if (!observation || !practice) { status.textContent = 'Fill in both fields.'; return; }
+  status.textContent = 'Saving...';
+
+  if (connected()) {
+    try { await apiPost('updateObservation', { id, observation, practice }); }
+    catch { status.textContent = 'Could not save to your Sheet.'; return; }
+  }
+
+  const item = state.observations.find(o => String(o.id) === String(id));
+  if (item) { item.observation = observation; item.action = practice; }
+  if (!connected()) localSet('routineHub.observations.local', state.observations);
+
+  state.editingObsId = null;
+  renderObservations();
 }
 
 document.getElementById('obsSearch').addEventListener('input', e => {

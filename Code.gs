@@ -8,6 +8,7 @@
  *   GET  ?action=routines       -> [{id, category, focus, why, what, frequency, freq, duration, object, active, dateAdded}]
  *   GET  ?action=inbox          -> [{id, text, dateAdded}]
  *   POST {action:'addObservation', observation, practice, category, routine} -> the new row
+ *   POST {action:'updateObservation', id, observation, practice}
  *   POST {action:'deleteObservation', id}
  *   POST {action:'addReviewBatch', rows:[{date, category, routine, serving, notes, why}, ...]}
  *   POST {action:'addRoutine', category, focus, why, what, frequency, freq, duration, object, active} -> the new row
@@ -35,6 +36,7 @@ function doPost(e) {
   var action = body.action;
 
   if (action === 'addObservation') return jsonOut(addObservation(body));
+  if (action === 'updateObservation') return jsonOut(updateObservation(body));
   if (action === 'deleteObservation') return jsonOut(deleteObservation(body.id));
   if (action === 'addReviewBatch') return jsonOut(addReviewBatch(body.rows || []));
   if (action === 'addRoutine') return jsonOut(addRoutine(body));
@@ -133,6 +135,21 @@ function addObservation(body) {
   sheet.getRange(row, layout.categoryCol + 1).setValue(body.category || '');
   sheet.getRange(row, layout.routineCol + 1).setValue(body.routine || '');
   return { id: id, observation: body.observation, action: body.practice, date: date, category: body.category || '', routine: body.routine || '' };
+}
+
+function updateObservation(body) {
+  var layout = findObservationsLayout();
+  var sheet = layout.sheet;
+  var last = sheet.getLastRow();
+  for (var r = layout.headerRow + 2; r <= last; r++) {
+    var rowId = sheet.getRange(r, layout.idCol + 1).getValue();
+    if (String(rowId) === String(body.id)) {
+      sheet.getRange(r, layout.obsCol + 1).setValue(body.observation);
+      sheet.getRange(r, layout.actionCol + 1).setValue(body.practice);
+      return { ok: true };
+    }
+  }
+  return { ok: false };
 }
 
 function deleteObservation(id) {
