@@ -65,6 +65,13 @@ function routineAlignmentArea(r) {
   return { mind: 'mind', body: 'self-care', soul: 'creative', cleaning: 'maintenance', organizing: 'maintenance', dog: 'marvel' }[r.category] || 'life-path';
 }
 
+function alignmentAreaBadgeHTML(r) {
+  const areaId = routineAlignmentArea(r);
+  const area = ALIGNMENT_AREAS.find(candidate => candidate.id === areaId);
+  if (!area) return '';
+  return `<span class="alignment-area-badge" style="--area:${area.color}">${area.icon} ${escapeHtml(area.short)}</span>`;
+}
+
 function typeBadgeHTML(type) {
   const meta = TYPE_META[type] || TYPE_META.reference;
   return `<span class="type-badge type-${type}">${meta.icon} ${meta.label}</span>`;
@@ -94,7 +101,7 @@ function routineCardHTML(r) {
           <span class="freq-badge">${r.frequency}</span>
         </div>
       </div>
-      <div class="card-badges">${typeBadgeHTML(type)}${sourceBadgeHTML(source)}</div>
+      <div class="card-badges">${typeBadgeHTML(type)}${sourceBadgeHTML(source)}${alignmentAreaBadgeHTML(r)}</div>
       <p class="why">${r.why}</p>
       <div class="meta">
         <span><b>What —</b> ${r.what}</span>
@@ -191,7 +198,8 @@ function renderGuide() {
       state.alignmentType = button.dataset.alignmentType;
       renderAlignmentTypeChips();
       renderAlignment();
-      showView('alignment');
+      showView('overview');
+      setMode('alignment');
     });
   });
   renderCapacity();
@@ -287,14 +295,14 @@ function alignmentItemHTML(item) {
 function renderAlignmentSummary(groups) {
   const entries = groups.flatMap(group => group.items);
   const matrixCount = MOTIVATION_MAP_GROUPS.reduce((sum, group) => sum + group.items.length, 0);
-  const tickTickCount = state.routines.filter(r => routineSource(r) === 'ticktick').length;
+  const activeCount = state.routines.filter(r => r.active).length;
   const matrixOnly = entries.filter(item => item.source === 'matrix').length;
-  const conflicts = entries.filter(item => item.type === 'mixed' || item.note).length;
   document.getElementById('alignmentSummary').innerHTML = `
-    <div><b>${matrixCount}</b><span>Milanote entries</span></div>
-    <div><b>${tickTickCount}</b><span>TickTick-linked entries</span></div>
-    <div><b>${matrixOnly}</b><span>Milanote-only entries</span></div>
-    <div><b>${conflicts}</b><span>differences to review</span></div>
+    <div class="alignment-total"><b>${entries.length}</b><span>aligned entries · complete view</span></div>
+    <div><b>${state.routines.length}</b><span>routine records · active + paused</span></div>
+    <div><b>${activeCount}</b><span>active routines · today's repeatable systems</span></div>
+    <div><b>${matrixCount}</b><span>Milanote motivation-map entries</span></div>
+    <div><b>${matrixOnly}</b><span>Milanote-only ideas · visible, not overdue</span></div>
   `;
 }
 
@@ -457,6 +465,10 @@ async function deleteRoutine(id, onDone) {
 // Tabs
 // ---------------------------------------------------------------------
 function showView(viewId) {
+  if (viewId === 'alignment') {
+    viewId = 'overview';
+    setMode('alignment');
+  }
   document.querySelectorAll('nav.tabs button').forEach(button => button.classList.toggle('active', button.dataset.view === viewId));
   document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === viewId));
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -467,23 +479,28 @@ document.querySelectorAll('nav.tabs button').forEach(btn => {
 });
 
 document.querySelectorAll('[data-go-view]').forEach(button => {
-  button.addEventListener('click', () => showView(button.dataset.goView));
+  button.addEventListener('click', () => {
+    showView(button.dataset.goView);
+    if (button.dataset.goMode) setMode(button.dataset.goMode);
+  });
 });
 
 document.getElementById('todayLabel').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 
 // ---------------------------------------------------------------------
-// Overview mode switch — wheel vs full list
+// Routines + Alignment mode switch
 // ---------------------------------------------------------------------
 document.querySelectorAll('#modeSwitch button').forEach(btn => {
   btn.addEventListener('click', () => setMode(btn.dataset.mode, true));
 });
 
 function setMode(mode, resetHash) {
+  if (!['alignment', 'wheel', 'list'].includes(mode)) mode = 'alignment';
   document.querySelectorAll('#modeSwitch button').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('alignmentMode').style.display = mode === 'alignment' ? '' : 'none';
   document.getElementById('wheelMode').style.display = mode === 'wheel' ? '' : 'none';
   document.getElementById('listMode').style.display = mode === 'list' ? '' : 'none';
-  localSet('routineHub.mode', mode);
+  localSet('routineHub.mode.v2', mode);
   if (mode === 'wheel' && resetHash) location.hash = '';
 }
 
@@ -528,6 +545,7 @@ function renderWheel() {
   });
 
   document.getElementById('wheelCount').textContent = state.routines.filter(r => r.active).length;
+  document.getElementById('wheelSubcount').textContent = `${state.routines.length} total · ${alignmentModel().flatMap(group => group.items).length} aligned`;
 }
 
 // ---------------------------------------------------------------------
@@ -1316,7 +1334,7 @@ applyZoom();
 routeOverview();
 renderListChips();
 renderList();
-setMode(localGet('routineHub.mode', 'wheel'));
+setMode(localGet('routineHub.mode.v2', 'alignment'));
 renderReviewForm();
 renderReviewScheduleBanner();
 populateObsCategorySelect();
