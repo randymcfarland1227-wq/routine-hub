@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Routines</title>
+<title>Routine Hub</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
 <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -11,12 +11,14 @@
 
 <header class="top">
   <div class="wrap top-inner">
-    <h1>Routines</h1>
+    <h1>Routine Hub</h1>
     <span class="date" id="todayLabel"></span>
   </div>
   <div class="wrap tabs-scroll">
     <nav class="tabs">
-      <button data-view="overview" class="active">🧭 Overview</button>
+      <button data-view="guide" class="active">🧭 Start Here</button>
+      <button data-view="alignment">🗺️ Alignment Map</button>
+      <button data-view="overview">🌱 Routines</button>
       <button data-view="inbox">📥 Inbox</button>
       <button data-view="observations">📝 Observations</button>
       <button data-view="review">🔄 Bi-Weekly Review</button>
@@ -26,8 +28,77 @@
 
 <main class="wrap">
 
+  <!-- ===================== DAILY COMPASS ===================== -->
+  <section id="guide" class="view active">
+    <div class="section-head compass-head">
+      <span class="eyebrow">Orient here · complete in TickTick</span>
+      <h2 class="section-title">Your Daily Compass</h2>
+      <p class="section-intro">This page is not another checklist. Use it to decide what kind of attention is needed, then complete tangible actions in TickTick.</p>
+    </div>
+
+    <div class="why-card" aria-live="polite">
+      <span class="why-card-label">Remember today</span>
+      <p id="dailyAnchor"></p>
+    </div>
+
+    <div class="capacity-panel">
+      <div>
+        <span class="eyebrow">Choose honestly</span>
+        <h3>What capacity do I have?</h3>
+      </div>
+      <div class="capacity-switch" id="capacitySwitch" role="group" aria-label="Choose today's capacity">
+        <button data-capacity="minimum">Low</button>
+        <button data-capacity="steady" class="active">Steady</button>
+        <button data-capacity="extra">Extra</button>
+      </div>
+      <p id="capacityGuidance" class="capacity-guidance"></p>
+    </div>
+
+    <div class="contract-grid" id="contractGrid"></div>
+
+    <div class="compass-next">
+      <div>
+        <span class="eyebrow">Nothing disappears</span>
+        <h3>See the complete picture</h3>
+        <p>The Alignment Map contains the entire Milanote motivation matrix plus everything already represented in TickTick and Routine Hub.</p>
+      </div>
+      <button class="btn" data-go-view="alignment">Open Alignment Map</button>
+    </div>
+  </section>
+
+  <!-- ===================== ALIGNMENT MAP ===================== -->
+  <section id="alignment" class="view">
+    <div class="section-head">
+      <span class="eyebrow">Milanote + TickTick + Routine Hub</span>
+      <h2 class="section-title">Complete Alignment Map</h2>
+      <p class="section-intro">One union of everything you care about. Pick one life area at a time to avoid turning the whole map into today's workload.</p>
+    </div>
+
+    <div class="alignment-summary" id="alignmentSummary"></div>
+
+    <div class="alignment-tools">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="search" id="alignmentSearch" placeholder="Find anything across all three systems…">
+      </div>
+      <div class="alignment-legend" aria-label="Item type legend">
+        <span class="type-badge type-task">▣ Stabilize</span>
+        <span class="type-badge type-habit">○ Practice</span>
+        <span class="type-badge type-reminder">◇ Remember</span>
+        <span class="type-badge type-routine">▶ Navigate</span>
+        <span class="type-badge type-project">◆ Build</span>
+      </div>
+    </div>
+
+    <div class="alignment-area-scroll">
+      <div class="alignment-area-chips" id="alignmentAreaChips"></div>
+    </div>
+    <div class="alignment-type-chips" id="alignmentTypeChips"></div>
+    <div id="alignmentDetail"></div>
+  </section>
+
   <!-- ===================== OVERVIEW ===================== -->
-  <section id="overview" class="view active">
+  <section id="overview" class="view">
 
     <div class="mode-switch" id="modeSwitch">
       <button data-mode="wheel" class="active">◎ Wheel</button>
