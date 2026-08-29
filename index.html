@@ -76,13 +76,14 @@
 
     <div class="mode-switch" id="modeSwitch">
       <button data-mode="alignment" class="active">🗺️ Alignment</button>
-      <button data-mode="wheel">◎ Wheel</button>
-      <button data-mode="list">☰ Routine List</button>
+      <button data-mode="wheel">◎ Coverage Wheel</button>
+      <button data-mode="list">☰ Routine Sheet List</button>
     </div>
 
     <!-- ---------- INTEGRATED ALIGNMENT MODE ---------- -->
     <div id="alignmentMode">
       <div class="alignment-summary" id="alignmentSummary"></div>
+      <p class="coverage-note" id="alignmentCoverageNote"></p>
 
       <div class="alignment-tools">
         <div class="search-box">
@@ -121,7 +122,7 @@
             <svg class="wheel-spokes" id="wheelSpokes" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
             <div class="wheel-center">
               <div class="wheel-center-count" id="wheelCount"></div>
-              <div class="wheel-center-label">active routines</div>
+              <div class="wheel-center-label">unique items</div>
               <div class="wheel-center-subcount" id="wheelSubcount"></div>
             </div>
             <div id="wheelNodes"></div>
@@ -150,7 +151,7 @@
     <!-- ---------- LIST MODE ---------- -->
     <div id="listMode" style="display:none">
       <div class="chip-row" id="chipRow">
-        <label class="chip-toggle"><input type="checkbox" id="showPausedList"> show paused</label>
+        <label class="chip-toggle"><input type="checkbox" id="showPausedList" checked> hide nothing</label>
       </div>
       <div id="catSections"></div>
     </div>
