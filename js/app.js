@@ -7,6 +7,10 @@ const state = {
   routines: ROUTINES.slice(), // overwritten by loadRoutines() once the Sheet responds
   observations: [],
   reviewAnswers: {}, // categoryId -> { serving, roadblocks, why, notes }
+  capacity: localStorage.getItem('routineHub.capacity') || 'steady',
+  alignmentArea: 'movement',
+  alignmentType: 'all',
+  alignmentSearch: '',
 };
 
 const ZOOM_MIN = 0.7, ZOOM_MAX = 1.6, ZOOM_STEP = 0.1, ZOOM_BASE = 380;
@@ -31,10 +35,58 @@ function prioritySort(a, b) {
   return starDiff !== 0 ? starDiff : b.freq - a.freq;
 }
 
+const TYPE_META = {
+  task: { label: 'Stabilize', icon: '▣', description: 'Needs closure. If it is missed, it remains unfinished.' },
+  habit: { label: 'Practice', icon: '○', description: 'Growth through repetition. If it is missed, return at the next cycle.' },
+  routine: { label: 'Navigate', icon: '▶', description: 'A sequence for a context or transition.' },
+  reminder: { label: 'Remember', icon: '◇', description: 'Meaning or direction. It is noticed, never completed or overdue.' },
+  project: { label: 'Build', icon: '◆', description: 'A multi-step outcome kept outside the everyday checklist.' },
+  mixed: { label: 'Needs a Decision', icon: '◐', description: 'Currently appears as both a task and a habit.' },
+  reference: { label: 'Reference', icon: '·', description: 'Visible in the hub, but not currently a TickTick item.' },
+};
+
+function routineType(r) {
+  if (r.type && TYPE_META[r.type]) return r.type;
+  const frequency = String(r.frequency || '').toLowerCase();
+  if (frequency.includes('habit + task')) return 'mixed';
+  if (frequency.startsWith('task') || frequency.includes('task bundle')) return 'task';
+  if (frequency.startsWith('habit')) return 'habit';
+  if (frequency.includes('not in ticktick') || frequency.includes('covered by')) return 'reference';
+  return 'routine';
+}
+
+function routineSource(r) {
+  const frequency = String(r.frequency || '').toLowerCase();
+  return frequency.includes('not in ticktick') || frequency.includes('covered by') ? 'hub' : 'ticktick';
+}
+
+function routineAlignmentArea(r) {
+  if (ROUTINE_ALIGNMENT_AREAS[r.id]) return ROUTINE_ALIGNMENT_AREAS[r.id];
+  return { mind: 'mind', body: 'self-care', soul: 'creative', cleaning: 'maintenance', organizing: 'maintenance', dog: 'marvel' }[r.category] || 'life-path';
+}
+
+function typeBadgeHTML(type) {
+  const meta = TYPE_META[type] || TYPE_META.reference;
+  return `<span class="type-badge type-${type}">${meta.icon} ${meta.label}</span>`;
+}
+
+function sourceBadgeHTML(source) {
+  const labels = {
+    both: 'TickTick + Milanote',
+    matrixhub: 'Milanote + Routine Hub',
+    matrix: 'Milanote only',
+    ticktick: 'TickTick only',
+    hub: 'Routine Hub only',
+  };
+  return `<span class="source-badge source-${source}">${labels[source] || source}</span>`;
+}
+
 function routineCardHTML(r) {
   const starred = state.starred.has(r.id);
+  const type = routineType(r);
+  const source = routineSource(r);
   return `
-    <div class="card${r.active ? '' : ' paused'}${starred ? ' starred' : ''}">
+    <div class="card type-card-${type}${r.active ? '' : ' paused'}${starred ? ' starred' : ''}">
       <div class="card-top">
         <h3>${r.focus}${r.active ? '' : '<span class="paused-tag">paused</span>'}${isNew(r) ? '<span class="new-tag">new</span>' : ''}</h3>
         <div class="card-top-right">
@@ -42,6 +94,7 @@ function routineCardHTML(r) {
           <span class="freq-badge">${r.frequency}</span>
         </div>
       </div>
+      <div class="card-badges">${typeBadgeHTML(type)}${sourceBadgeHTML(source)}</div>
       <p class="why">${r.why}</p>
       <div class="meta">
         <span><b>What —</b> ${r.what}</span>
@@ -63,6 +116,222 @@ function wireStarButtons(container, onToggle) {
     btn.addEventListener('click', () => deleteRoutine(btn.dataset.id, onToggle));
   });
 }
+
+// ---------------------------------------------------------------------
+// Daily Compass + complete Milanote / TickTick / Routine Hub union.
+// These are orientation surfaces only; no item can be checked off here.
+// ---------------------------------------------------------------------
+
+function alignmentModel() {
+  const routineById = new Map(state.routines.map(r => [String(r.id), r]));
+  const matchedRoutineIds = new Set();
+  const groups = MOTIVATION_MAP_GROUPS.map(group => ({
+    ...group,
+    items: group.items.map(item => {
+      const routine = item.routineId ? routineById.get(String(item.routineId)) : null;
+      if (routine) matchedRoutineIds.add(String(routine.id));
+      const currentType = routine ? routineType(routine) : item.type;
+      const source = routine
+        ? (routineSource(routine) === 'ticktick' ? 'both' : 'matrixhub')
+        : 'matrix';
+      return { ...item, type: currentType === 'reference' ? item.type : currentType, source, routine };
+    }),
+  }));
+
+  const extrasByArea = {};
+  state.routines.forEach(routine => {
+    if (matchedRoutineIds.has(String(routine.id))) return;
+    const area = routineAlignmentArea(routine);
+    (extrasByArea[area] = extrasByArea[area] || []).push({
+      title: routine.focus,
+      type: routineType(routine),
+      source: routineSource(routine),
+      routine,
+      note: routine.active ? '' : 'Kept visible in Routine Hub; currently paused.',
+    });
+  });
+
+  Object.entries(extrasByArea).forEach(([area, items]) => {
+    groups.push({
+      area,
+      label: 'Also in TickTick / Routine Hub',
+      extra: true,
+      items: items.sort((a, b) => prioritySort(a.routine, b.routine)),
+    });
+  });
+  return groups;
+}
+
+function renderGuide() {
+  const dayIndex = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
+  document.getElementById('dailyAnchor').textContent = DAILY_ANCHORS[dayIndex % DAILY_ANCHORS.length];
+
+  const entries = alignmentModel().flatMap(group => group.items);
+  const counts = entries.reduce((acc, item) => {
+    acc[item.type] = (acc[item.type] || 0) + 1;
+    return acc;
+  }, {});
+  const visibleTypes = ['task', 'habit', 'routine', 'reminder', 'project'];
+  document.getElementById('contractGrid').innerHTML = visibleTypes.map(type => {
+    const meta = TYPE_META[type];
+    return `
+      <button class="contract-card contract-${type}" data-alignment-type="${type}">
+        <span class="contract-icon" aria-hidden="true">${meta.icon}</span>
+        <span class="contract-copy">
+          <span class="contract-title">${meta.label}</span>
+          <span class="contract-description">${meta.description}</span>
+        </span>
+        <span class="contract-count">${counts[type] || 0}</span>
+      </button>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.contract-card').forEach(button => {
+    button.addEventListener('click', () => {
+      state.alignmentType = button.dataset.alignmentType;
+      renderAlignmentTypeChips();
+      renderAlignment();
+      showView('alignment');
+    });
+  });
+  renderCapacity();
+}
+
+const CAPACITY_GUIDANCE = {
+  minimum: '<b>Protect stability.</b> Choose one must-finish task and the minimum version of essential care. Everything else remains visible, not failed.',
+  steady: '<b>Balance closure and growth.</b> Choose up to three stabilizing tasks, run the routine for your current context, then practice one growth habit.',
+  extra: '<b>Use the opening intentionally.</b> Finish stabilizing work first, then choose one Build item or a fuller version of a Practice—without creating tomorrow’s debt.',
+};
+
+function renderCapacity() {
+  document.querySelectorAll('#capacitySwitch button').forEach(button => {
+    button.classList.toggle('active', button.dataset.capacity === state.capacity);
+  });
+  document.getElementById('capacityGuidance').innerHTML = CAPACITY_GUIDANCE[state.capacity];
+}
+
+document.querySelectorAll('#capacitySwitch button').forEach(button => {
+  button.addEventListener('click', () => {
+    state.capacity = button.dataset.capacity;
+    localStorage.setItem('routineHub.capacity', state.capacity);
+    renderCapacity();
+  });
+});
+
+function renderAlignmentAreaChips() {
+  const groups = alignmentModel();
+  const counts = {};
+  groups.forEach(group => { counts[group.area] = (counts[group.area] || 0) + group.items.length; });
+  const container = document.getElementById('alignmentAreaChips');
+  container.innerHTML = ALIGNMENT_AREAS.map(area => `
+    <button class="alignment-area-chip${state.alignmentArea === area.id ? ' active' : ''}" data-area="${area.id}" style="--area:${area.color}">
+      <span>${area.icon}</span>${area.short}<small>${counts[area.id] || 0}</small>
+    </button>
+  `).join('');
+  container.querySelectorAll('button').forEach(button => {
+    button.addEventListener('click', () => {
+      state.alignmentArea = button.dataset.area;
+      state.alignmentSearch = '';
+      document.getElementById('alignmentSearch').value = '';
+      renderAlignmentAreaChips();
+      renderAlignment();
+    });
+  });
+}
+
+function renderAlignmentTypeChips() {
+  const types = ['all', 'task', 'habit', 'reminder', 'routine', 'project', 'mixed', 'reference'];
+  const container = document.getElementById('alignmentTypeChips');
+  container.innerHTML = types.map(type => {
+    const label = type === 'all' ? 'Everything' : `${TYPE_META[type].icon} ${TYPE_META[type].label}`;
+    return `<button class="filter-chip${state.alignmentType === type ? ' active' : ''}" data-type="${type}">${label}</button>`;
+  }).join('');
+  container.querySelectorAll('button').forEach(button => {
+    button.addEventListener('click', () => {
+      state.alignmentType = button.dataset.type;
+      renderAlignmentTypeChips();
+      renderAlignment();
+    });
+  });
+}
+
+function itemMatchesAlignmentFilters(item, query) {
+  if (state.alignmentType !== 'all' && item.type !== state.alignmentType) return false;
+  if (!query) return true;
+  const searchable = [item.title, item.note, item.routine && item.routine.why, item.routine && item.routine.what, item.routine && item.routine.frequency]
+    .filter(Boolean).join(' ').toLowerCase();
+  return searchable.includes(query);
+}
+
+function alignmentItemHTML(item) {
+  const routine = item.routine;
+  const stateLabel = routine ? `<span class="alignment-state${routine.active ? '' : ' paused'}">${routine.active ? 'active' : 'paused'}</span>` : '';
+  const details = [];
+  if (routine && routine.frequency) details.push(routine.frequency);
+  if (routine && routine.why) details.push(routine.why);
+  return `
+    <div class="alignment-item type-item-${item.type}">
+      <span class="alignment-item-icon" aria-hidden="true">${TYPE_META[item.type].icon}</span>
+      <div class="alignment-item-main">
+        <div class="alignment-item-title-row">
+          <h4>${escapeHtml(item.title)}</h4>${stateLabel}
+        </div>
+        <div class="alignment-item-badges">${typeBadgeHTML(item.type)}${sourceBadgeHTML(item.source)}</div>
+        ${details.length ? `<p class="alignment-item-detail">${details.map(escapeHtml).join(' · ')}</p>` : ''}
+        ${item.note ? `<p class="alignment-note">⚠ ${escapeHtml(item.note)}</p>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderAlignmentSummary(groups) {
+  const entries = groups.flatMap(group => group.items);
+  const matrixCount = MOTIVATION_MAP_GROUPS.reduce((sum, group) => sum + group.items.length, 0);
+  const tickTickCount = state.routines.filter(r => routineSource(r) === 'ticktick').length;
+  const matrixOnly = entries.filter(item => item.source === 'matrix').length;
+  const conflicts = entries.filter(item => item.type === 'mixed' || item.note).length;
+  document.getElementById('alignmentSummary').innerHTML = `
+    <div><b>${matrixCount}</b><span>Milanote entries</span></div>
+    <div><b>${tickTickCount}</b><span>TickTick-linked entries</span></div>
+    <div><b>${matrixOnly}</b><span>Milanote-only entries</span></div>
+    <div><b>${conflicts}</b><span>differences to review</span></div>
+  `;
+}
+
+function renderAlignment() {
+  const groups = alignmentModel();
+  renderAlignmentSummary(groups);
+  const query = state.alignmentSearch.trim().toLowerCase();
+  const areaIds = query ? ALIGNMENT_AREAS.map(area => area.id) : [state.alignmentArea];
+  const detail = document.getElementById('alignmentDetail');
+  const renderedAreas = areaIds.map(areaId => {
+    const area = ALIGNMENT_AREAS.find(candidate => candidate.id === areaId);
+    const areaGroups = groups.map(group => ({
+      ...group,
+      items: group.area === areaId ? group.items.filter(item => itemMatchesAlignmentFilters(item, query)) : [],
+    })).filter(group => group.items.length);
+    if (!areaGroups.length) return '';
+    return `
+      <section class="alignment-area" style="--area:${area.color}">
+        <div class="alignment-area-head"><span>${area.icon}</span><div><h2>${area.label}</h2><p>${areaGroups.reduce((sum, group) => sum + group.items.length, 0)} visible items</p></div></div>
+        <div class="alignment-groups">
+          ${areaGroups.map(group => `
+            <section class="alignment-group${group.extra ? ' alignment-extra-group' : ''}">
+              <h3>${escapeHtml(group.label)}</h3>
+              <div class="alignment-items">${group.items.map(alignmentItemHTML).join('')}</div>
+            </section>
+          `).join('')}
+        </div>
+      </section>
+    `;
+  }).join('');
+  detail.innerHTML = renderedAreas || '<div class="empty-state">Nothing matches this search and type filter.</div>';
+}
+
+document.getElementById('alignmentSearch').addEventListener('input', event => {
+  state.alignmentSearch = event.target.value;
+  renderAlignment();
+});
 
 // ---------------------------------------------------------------------
 // Routines — fetched from the "Site Routines" sheet tab (seeded once
@@ -187,13 +456,18 @@ async function deleteRoutine(id, onDone) {
 // ---------------------------------------------------------------------
 // Tabs
 // ---------------------------------------------------------------------
+function showView(viewId) {
+  document.querySelectorAll('nav.tabs button').forEach(button => button.classList.toggle('active', button.dataset.view === viewId));
+  document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === viewId));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 document.querySelectorAll('nav.tabs button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(btn.dataset.view).classList.add('active');
-  });
+  btn.addEventListener('click', () => showView(btn.dataset.view));
+});
+
+document.querySelectorAll('[data-go-view]').forEach(button => {
+  button.addEventListener('click', () => showView(button.dataset.goView));
 });
 
 document.getElementById('todayLabel').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
@@ -1033,6 +1307,10 @@ document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
 // ---------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------
+renderGuide();
+renderAlignmentAreaChips();
+renderAlignmentTypeChips();
+renderAlignment();
 renderWheel();
 applyZoom();
 routeOverview();
@@ -1047,6 +1325,9 @@ loadReviews();
 loadInbox();
 
 loadRoutines().then(() => {
+  renderGuide();
+  renderAlignmentAreaChips();
+  renderAlignment();
   renderWheel();
   routeOverview();
   renderList();
