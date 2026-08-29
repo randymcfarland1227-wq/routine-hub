@@ -1,6 +1,6 @@
 const state = {
   showPaused: false,          // category drill-down view
-  listShowPaused: false,      // list mode
+  listShowPaused: true,       // routine-sheet list starts complete
   listActiveCats: new Set(CATEGORIES.map(c => c.id)),
   zoom: 1,
   starred: new Set(JSON.parse(localStorage.getItem('routineHub.starred') || '[]')),
@@ -88,6 +88,32 @@ function sourceBadgeHTML(source) {
   return `<span class="source-badge source-${source}">${labels[source] || source}</span>`;
 }
 
+function routineMatrixItems(routineId) {
+  return MOTIVATION_MAP_GROUPS.flatMap(group => group.items)
+    .filter(item => String(item.routineId || '') === String(routineId));
+}
+
+function routineSystems(routine, inMilanote = routineMatrixItems(routine.id).length > 0) {
+  return {
+    site: true,
+    sheet: true,
+    ticktick: routineSource(routine) === 'ticktick',
+    milanote: inMilanote,
+  };
+}
+
+function systemBadgesHTML(systems) {
+  const labels = [
+    ['site', 'Site'],
+    ['sheet', 'Sheet'],
+    ['ticktick', 'TickTick'],
+    ['milanote', 'Milanote'],
+  ];
+  return `<span class="system-badges" aria-label="Platform coverage">${labels.map(([key, label]) => `
+    <span class="system-badge ${systems[key] ? 'present' : 'missing'}">${systems[key] ? '✓' : '—'} ${label}</span>
+  `).join('')}</span>`;
+}
+
 function routineCardHTML(r) {
   const starred = state.starred.has(r.id);
   const type = routineType(r);
@@ -101,7 +127,7 @@ function routineCardHTML(r) {
           <span class="freq-badge">${r.frequency}</span>
         </div>
       </div>
-      <div class="card-badges">${typeBadgeHTML(type)}${sourceBadgeHTML(source)}${alignmentAreaBadgeHTML(r)}</div>
+      <div class="card-badges">${typeBadgeHTML(type)}${systemBadgesHTML(routineSystems(r))}${alignmentAreaBadgeHTML(r)}</div>
       <p class="why">${r.why}</p>
       <div class="meta">
         <span><b>What —</b> ${r.what}</span>
@@ -131,19 +157,45 @@ function wireStarButtons(container, onToggle) {
 
 function alignmentModel() {
   const routineById = new Map(state.routines.map(r => [String(r.id), r]));
-  const matchedRoutineIds = new Set();
-  const groups = MOTIVATION_MAP_GROUPS.map(group => ({
-    ...group,
-    items: group.items.map(item => {
-      const routine = item.routineId ? routineById.get(String(item.routineId)) : null;
-      if (routine) matchedRoutineIds.add(String(routine.id));
-      const currentType = routine ? routineType(routine) : item.type;
-      const source = routine
-        ? (routineSource(routine) === 'ticktick' ? 'both' : 'matrixhub')
-        : 'matrix';
-      return { ...item, type: currentType === 'reference' ? item.type : currentType, source, routine };
-    }),
+  const linkedMatrixItems = new Map();
+  MOTIVATION_MAP_GROUPS.forEach(group => group.items.forEach(item => {
+    const id = String(item.routineId || '');
+    if (!id || !routineById.has(id)) return;
+    if (!linkedMatrixItems.has(id)) linkedMatrixItems.set(id, []);
+    linkedMatrixItems.get(id).push({ ...item, area: group.area, group: group.label });
   }));
+
+  const matchedRoutineIds = new Set();
+  const groups = MOTIVATION_MAP_GROUPS.map(group => {
+    const items = [];
+    group.items.forEach(item => {
+      const id = String(item.routineId || '');
+      const routine = id ? routineById.get(id) : null;
+      if (!routine) {
+        items.push({
+          ...item,
+          source: 'matrix',
+          systems: { site: true, sheet: false, ticktick: false, milanote: true },
+        });
+        return;
+      }
+      if (matchedRoutineIds.has(id)) return;
+      matchedRoutineIds.add(id);
+      const aliases = linkedMatrixItems.get(id) || [];
+      const currentType = routineType(routine);
+      items.push({
+        ...item,
+        title: routine.focus,
+        type: currentType === 'reference' ? item.type : currentType,
+        source: 'union',
+        routine,
+        systems: routineSystems(routine, true),
+        matrixAliases: aliases.map(alias => alias.title),
+        note: aliases.map(alias => alias.note).filter(Boolean).join(' '),
+      });
+    });
+    return { ...group, items };
+  }).filter(group => group.items.length);
 
   const extrasByArea = {};
   state.routines.forEach(routine => {
@@ -154,6 +206,7 @@ function alignmentModel() {
       type: routineType(routine),
       source: routineSource(routine),
       routine,
+      systems: routineSystems(routine, false),
       note: routine.active ? '' : 'Kept visible in Routine Hub; currently paused.',
     });
   });
@@ -273,10 +326,14 @@ function itemMatchesAlignmentFilters(item, query) {
 
 function alignmentItemHTML(item) {
   const routine = item.routine;
-  const stateLabel = routine ? `<span class="alignment-state${routine.active ? '' : ' paused'}">${routine.active ? 'active' : 'paused'}</span>` : '';
+  const systems = item.systems || { site: true, sheet: false, ticktick: false, milanote: true };
+  const stateLabel = systems.ticktick
+    ? '<span class="alignment-state">active in TickTick</span>'
+    : `<span class="alignment-state paused">${routine ? 'not active in TickTick' : 'not yet matched'}</span>`;
   const details = [];
   if (routine && routine.frequency) details.push(routine.frequency);
   if (routine && routine.why) details.push(routine.why);
+  const aliases = (item.matrixAliases || []).filter(title => title.toLowerCase() !== item.title.toLowerCase());
   return `
     <div class="alignment-item type-item-${item.type}">
       <span class="alignment-item-icon" aria-hidden="true">${TYPE_META[item.type].icon}</span>
@@ -284,8 +341,9 @@ function alignmentItemHTML(item) {
         <div class="alignment-item-title-row">
           <h4>${escapeHtml(item.title)}</h4>${stateLabel}
         </div>
-        <div class="alignment-item-badges">${typeBadgeHTML(item.type)}${sourceBadgeHTML(item.source)}</div>
+        <div class="alignment-item-badges">${typeBadgeHTML(item.type)}${systemBadgesHTML(systems)}</div>
         ${details.length ? `<p class="alignment-item-detail">${details.map(escapeHtml).join(' · ')}</p>` : ''}
+        ${aliases.length ? `<p class="alignment-aliases"><b>Milanote wording:</b> ${aliases.map(escapeHtml).join(' · ')}</p>` : ''}
         ${item.note ? `<p class="alignment-note">⚠ ${escapeHtml(item.note)}</p>` : ''}
       </div>
     </div>
@@ -296,14 +354,16 @@ function renderAlignmentSummary(groups) {
   const entries = groups.flatMap(group => group.items);
   const matrixCount = MOTIVATION_MAP_GROUPS.reduce((sum, group) => sum + group.items.length, 0);
   const activeCount = state.routines.filter(r => r.active).length;
-  const matrixOnly = entries.filter(item => item.source === 'matrix').length;
+  const linkedOverlapCount = MOTIVATION_MAP_GROUPS.reduce((sum, group) => sum + group.items.filter(item => item.routineId && state.routines.some(routine => String(routine.id) === String(item.routineId))).length, 0);
+  const fullyMatched = entries.filter(item => item.systems && item.systems.site && item.systems.sheet && item.systems.ticktick).length;
   document.getElementById('alignmentSummary').innerHTML = `
-    <div class="alignment-total"><b>${entries.length}</b><span>aligned entries · complete view</span></div>
-    <div><b>${state.routines.length}</b><span>routine records · active + paused</span></div>
-    <div><b>${activeCount}</b><span>active routines · today's repeatable systems</span></div>
-    <div><b>${matrixCount}</b><span>Milanote motivation-map entries</span></div>
-    <div><b>${matrixOnly}</b><span>Milanote-only ideas · visible, not overdue</span></div>
+    <div class="alignment-total"><b>${entries.length}</b><span>total unique items</span></div>
+    <div><b>${state.routines.length}</b><span>present on the Routine Sheet</span></div>
+    <div><b>${activeCount}</b><span>active in TickTick</span></div>
+    <div><b>${matrixCount}</b><span>Milanote source entries</span></div>
+    <div><b>${entries.length - fullyMatched}</b><span>still need Sheet and/or TickTick matching</span></div>
   `;
+  document.getElementById('alignmentCoverageNote').innerHTML = `<b>${entries.length} unique items</b> = ${state.routines.length} Routine Sheet items + ${matrixCount} Milanote entries − ${linkedOverlapCount} linked overlaps. ${fullyMatched} are matched across Site + Sheet + TickTick; ${entries.length - fullyMatched} still need matching.`;
 }
 
 function renderAlignment() {
@@ -500,8 +560,11 @@ function setMode(mode, resetHash) {
   document.getElementById('alignmentMode').style.display = mode === 'alignment' ? '' : 'none';
   document.getElementById('wheelMode').style.display = mode === 'wheel' ? '' : 'none';
   document.getElementById('listMode').style.display = mode === 'list' ? '' : 'none';
-  localSet('routineHub.mode.v2', mode);
-  if (mode === 'wheel' && resetHash) location.hash = '';
+  localSet('routineHub.mode.v3', mode);
+  if (mode === 'wheel') {
+    if (resetHash) location.hash = '';
+    requestAnimationFrame(applyZoom);
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -514,15 +577,18 @@ function renderWheel() {
   nodesEl.innerHTML = '';
   spokesEl.innerHTML = '';
 
-  const n = CATEGORIES.length;
+  const unionGroups = alignmentModel();
+  const unionItems = unionGroups.flatMap(group => group.items);
+  const areaCounts = Object.fromEntries(ALIGNMENT_AREAS.map(area => [area.id, unionGroups.filter(group => group.area === area.id).reduce((sum, group) => sum + group.items.length, 0)]));
+  const n = ALIGNMENT_AREAS.length;
   const R = 38; // radius, % of wheel-wrap
   const cx = 50, cy = 50;
 
-  CATEGORIES.forEach((cat, i) => {
+  ALIGNMENT_AREAS.forEach((area, i) => {
     const angle = (2 * Math.PI * i) / n - Math.PI / 2;
     const x = cx + R * Math.cos(angle);
     const y = cy + R * Math.sin(angle);
-    const count = state.routines.filter(r => r.category === cat.id && r.active).length;
+    const count = areaCounts[area.id] || 0;
 
     const spoke = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     spoke.setAttribute('x1', cx); spoke.setAttribute('y1', cy);
@@ -534,18 +600,26 @@ function renderWheel() {
     node.className = 'wheel-node';
     node.style.left = x + '%';
     node.style.top = y + '%';
-    node.style.setProperty('--dot', `var(--c-${cat.id})`);
+    node.style.setProperty('--dot', area.color);
     node.innerHTML = `
-      <span class="bubble">${cat.icon}</span>
-      <span class="label">${cat.label}</span>
+      <span class="bubble">${area.icon}</span>
+      <span class="label">${area.short}</span>
       <span class="count">${count}</span>
     `;
-    node.addEventListener('click', () => { location.hash = `#/category/${cat.id}`; });
+    node.addEventListener('click', () => {
+      state.alignmentArea = area.id;
+      state.alignmentSearch = '';
+      document.getElementById('alignmentSearch').value = '';
+      renderAlignmentAreaChips();
+      renderAlignment();
+      setMode('alignment');
+      window.scrollTo({ top: document.getElementById('overview').offsetTop, behavior: 'smooth' });
+    });
     nodesEl.appendChild(node);
   });
 
-  document.getElementById('wheelCount').textContent = state.routines.filter(r => r.active).length;
-  document.getElementById('wheelSubcount').textContent = `${state.routines.length} total · ${alignmentModel().flatMap(group => group.items).length} aligned`;
+  document.getElementById('wheelCount').textContent = unionItems.length;
+  document.getElementById('wheelSubcount').textContent = `${state.routines.length} on sheet · ${state.routines.filter(r => r.active).length} in TickTick`;
 }
 
 // ---------------------------------------------------------------------
@@ -1334,7 +1408,7 @@ applyZoom();
 routeOverview();
 renderListChips();
 renderList();
-setMode(localGet('routineHub.mode.v2', 'alignment'));
+setMode(localGet('routineHub.mode.v3', 'alignment'));
 renderReviewForm();
 renderReviewScheduleBanner();
 populateObsCategorySelect();
