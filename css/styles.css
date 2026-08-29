@@ -344,6 +344,18 @@ main { padding-top: 20px; }
 }
 .alignment-summary .alignment-total span { color: rgba(255,255,255,0.78); }
 
+.coverage-note {
+  margin: -2px 0 14px;
+  padding: 10px 12px;
+  border-left: 3px solid #74579f;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, #74579f 8%, var(--bg-elevated));
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+.coverage-note b { color: var(--text); }
+
 .alignment-tools {
   padding: 14px;
   border: 1px solid var(--border);
@@ -453,11 +465,27 @@ main { padding-top: 20px; }
 .alignment-item h4 { flex: 1; font-family: 'Inter', sans-serif; font-size: 0.82rem; line-height: 1.35; }
 .alignment-item-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
 .alignment-item-detail { color: var(--text-faint); font-size: 0.7rem; line-height: 1.4; margin: 6px 0 0; }
+.alignment-aliases { color: var(--text-muted); font-size: 0.69rem; line-height: 1.45; margin: 6px 0 0; }
+.alignment-aliases b { color: var(--text); }
 .alignment-note { color: var(--type-mixed); font-size: 0.69rem; line-height: 1.4; margin: 6px 0 0; }
 .alignment-state { color: #39745a; background: color-mix(in srgb, #39745a 12%, transparent); }
 .alignment-state.paused { color: var(--text-faint); background: var(--bg); border: 1px solid var(--border); }
 
 .card-badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 8px; }
+.system-badges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.system-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 7px;
+  font-size: 0.59rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.system-badge.present { color: #39745a; border-color: color-mix(in srgb, #39745a 32%, var(--border)); background: color-mix(in srgb, #39745a 9%, transparent); }
+.system-badge.missing { color: var(--text-faint); background: var(--bg); }
 .alignment-area-badge {
   display: inline-flex;
   align-items: center;
@@ -798,8 +826,10 @@ main { padding-top: 20px; }
 .card-top-right {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  flex-shrink: 0;
+  flex: 0 1 52%;
+  min-width: 0;
 }
 
 .star-btn {
@@ -837,7 +867,11 @@ main { padding-top: 20px; }
   background: color-mix(in srgb, var(--cat) 15%, transparent);
   padding: 3px 7px;
   border-radius: 999px;
-  white-space: nowrap;
+  max-width: 150px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .card .why {
@@ -1338,4 +1372,6 @@ main { padding-top: 20px; }
   .capacity-panel { grid-template-columns: 1fr; }
   .capacity-switch { justify-self: start; }
   .compass-next { align-items: flex-start; flex-direction: column; }
+  .card-top-right { flex-basis: 48%; }
+  .freq-badge { max-width: 118px; }
 }
