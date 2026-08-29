@@ -17,8 +17,7 @@
   <div class="wrap tabs-scroll">
     <nav class="tabs">
       <button data-view="guide" class="active">🧭 Start Here</button>
-      <button data-view="alignment">🗺️ Alignment Map</button>
-      <button data-view="overview">🌱 Routines</button>
+      <button data-view="overview">🌱 Routines + Alignment</button>
       <button data-view="inbox">📥 Inbox</button>
       <button data-view="observations">📝 Observations</button>
       <button data-view="review">🔄 Bi-Weekly Review</button>
@@ -62,47 +61,48 @@
         <h3>See the complete picture</h3>
         <p>The Alignment Map contains the entire Milanote motivation matrix plus everything already represented in TickTick and Routine Hub.</p>
       </div>
-      <button class="btn" data-go-view="alignment">Open Alignment Map</button>
+      <button class="btn" data-go-view="overview" data-go-mode="alignment">Open Routines + Alignment</button>
     </div>
-  </section>
-
-  <!-- ===================== ALIGNMENT MAP ===================== -->
-  <section id="alignment" class="view">
-    <div class="section-head">
-      <span class="eyebrow">Milanote + TickTick + Routine Hub</span>
-      <h2 class="section-title">Complete Alignment Map</h2>
-      <p class="section-intro">One union of everything you care about. Pick one life area at a time to avoid turning the whole map into today's workload.</p>
-    </div>
-
-    <div class="alignment-summary" id="alignmentSummary"></div>
-
-    <div class="alignment-tools">
-      <div class="search-box">
-        <span class="search-icon">⌕</span>
-        <input type="search" id="alignmentSearch" placeholder="Find anything across all three systems…">
-      </div>
-      <div class="alignment-legend" aria-label="Item type legend">
-        <span class="type-badge type-task">▣ Stabilize</span>
-        <span class="type-badge type-habit">○ Practice</span>
-        <span class="type-badge type-reminder">◇ Remember</span>
-        <span class="type-badge type-routine">▶ Navigate</span>
-        <span class="type-badge type-project">◆ Build</span>
-      </div>
-    </div>
-
-    <div class="alignment-area-scroll">
-      <div class="alignment-area-chips" id="alignmentAreaChips"></div>
-    </div>
-    <div class="alignment-type-chips" id="alignmentTypeChips"></div>
-    <div id="alignmentDetail"></div>
   </section>
 
   <!-- ===================== OVERVIEW ===================== -->
   <section id="overview" class="view">
 
+    <div class="section-head routines-head">
+      <span class="eyebrow">Milanote + TickTick + Routine Hub</span>
+      <h2 class="section-title">Routines + Alignment</h2>
+      <p class="section-intro">Your complete motivation map and every current routine live together here. The alignment view includes practices, required tasks, reminders, routines, and longer projects without treating all of them like today's checklist.</p>
+    </div>
+
     <div class="mode-switch" id="modeSwitch">
-      <button data-mode="wheel" class="active">◎ Wheel</button>
-      <button data-mode="list">☰ List</button>
+      <button data-mode="alignment" class="active">🗺️ Alignment</button>
+      <button data-mode="wheel">◎ Wheel</button>
+      <button data-mode="list">☰ Routine List</button>
+    </div>
+
+    <!-- ---------- INTEGRATED ALIGNMENT MODE ---------- -->
+    <div id="alignmentMode">
+      <div class="alignment-summary" id="alignmentSummary"></div>
+
+      <div class="alignment-tools">
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input type="search" id="alignmentSearch" placeholder="Find anything across your motivation map and routines…">
+        </div>
+        <div class="alignment-legend" aria-label="Item type legend">
+          <span class="type-badge type-task">▣ Stabilize</span>
+          <span class="type-badge type-habit">○ Practice</span>
+          <span class="type-badge type-reminder">◇ Remember</span>
+          <span class="type-badge type-routine">▶ Navigate</span>
+          <span class="type-badge type-project">◆ Build</span>
+        </div>
+      </div>
+
+      <div class="alignment-area-scroll">
+        <div class="alignment-area-chips" id="alignmentAreaChips"></div>
+      </div>
+      <div class="alignment-type-chips" id="alignmentTypeChips"></div>
+      <div id="alignmentDetail"></div>
     </div>
 
     <!-- ---------- WHEEL MODE ---------- -->
@@ -122,6 +122,7 @@
             <div class="wheel-center">
               <div class="wheel-center-count" id="wheelCount"></div>
               <div class="wheel-center-label">active routines</div>
+              <div class="wheel-center-subcount" id="wheelSubcount"></div>
             </div>
             <div id="wheelNodes"></div>
           </div>
