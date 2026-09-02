@@ -16,7 +16,7 @@ const CATEGORIES = [
 
 // freq: sort weight, higher = more frequent. active:false = currently paused per the sheet.
 // dateAdded: 'YYYY-MM-DD' — set to today when adding a new routine to get an auto "NEW" badge for 2 weeks.
-const ROUTINES = [
+const LEGACY_ROUTINES = [
   // ---------- MIND ----------
   { id: 'mind-healthy-minds-session', category: 'mind', dateAdded: '2026-01-01', focus: 'Healthy Minds Sessions', why: 'To aid in mental growth and being present', what: 'Awareness Monday, Connection Tuesday, Insight Wednesday, Purpose Thursday, Foundations Friday', frequency: 'Habit · Mon–Fri', freq: 5, duration: 'One guided session each weekday', object: 'Healthy Minds App', active: true },
   { id: 'mind-journaling', category: 'mind', dateAdded: '2026-01-01', focus: 'Journal or Self Discovery', why: 'To channel joys and desires and stay connected to yourself', what: 'Journal, reflect, or complete a self-discovery practice', frequency: 'Habit · Daily', freq: 7, duration: 'A page, paragraph, or short prompt', object: 'Notes, Google Doc, paper, or Bear', active: true },
@@ -92,6 +92,61 @@ const ROUTINES = [
   { id: 'dog-behavioral-audit', category: 'dog', dateAdded: '2026-01-01', focus: 'Behavioral Audit', why: 'To place findings into action', what: 'Dig into behaviors to work on', frequency: 'Covered by Marvel Review', freq: 0, duration: 'Monthly', object: '', active: false },
 ];
 
+// Live TickTick mirror captured 2026-09-02. Existing Routine Hub-only entries stay in
+// LEGACY_ROUTINES; matching entries are updated in place and new TickTick concepts
+// are layered in. This keeps the website useful as a complete union without losing
+// ideas that have not been activated in TickTick yet.
+const TICKTICK_ROUTINES = [
+  // Updated versions of routines that already existed in the Hub.
+  { id: 'mind-weekday-reminders', ticktickId: '6a39ed1a55fe118362fb8887', category: 'mind', dateAdded: '2026-08-28', focus: 'Open Grounding (Reminders)', why: 'To reconnect priorities, purpose, rest, joy, curiosity, and self-assurance with the day', what: 'Read the grounding reminders and choose the attention the day needs', frequency: 'Task · Mon–Fri', freq: 5, duration: 'Brief weekday orientation', object: 'TickTick Grounding list', active: true, type: 'task' },
+  { id: 'mind-personal-check-in', ticktickId: '6a4d3200f017d143d59110c7', category: 'mind', dateAdded: '2026-08-28', focus: 'Personal Check In (Bi Weekly)', why: 'To review routines, projects, tasks, and self-grounding', what: 'Complete the routines, projects/tasks, and grounding checklist', frequency: 'Task · Every other Sat', freq: 0.5, duration: 'Bi-weekly', object: 'TickTick checklist', active: true, type: 'task' },
+  { id: 'body-vitamins-supplements', ticktickId: '69ceedf0f95d5102bc895aab', category: 'body', dateAdded: '2026-01-01', focus: 'Medicine and Vitamins', why: 'To support health, recovery, and well-being', what: 'Take medicine, vitamins, and planned sleep supplements', frequency: 'Habit · Daily', freq: 7, duration: 'Daily', object: 'Medicine and supplements', active: true, type: 'habit' },
+  { id: 'body-water-intake', ticktickId: '6a939b9a8f08defd959116e4', category: 'body', dateAdded: '2026-08-29', focus: 'Drink 5 Bottles of Water', why: 'To support hydration, endurance, recovery, and regulation', what: 'Drink at least five bottles of water', frequency: 'Habit · Daily', freq: 7, duration: 'Five bottles', object: 'Water bottle', active: true, type: 'habit' },
+  { id: 'body-weekly-bath', ticktickId: '69d002d0055a11026a8d9251', category: 'body', dateAdded: '2026-01-01', focus: 'Shower or Epsom Salt Bath', why: 'To support hygiene, relaxation, and physical recovery', what: 'Shower daily; on Friday an Epsom salt bath may replace the shower', frequency: 'Habit · Daily', freq: 7, duration: 'One shower or bath', object: 'Shower supplies or Epsom salt', active: true, type: 'habit' },
+  { id: 'cleaning-vacuum-room', ticktickId: '69cef0cab8fe5102bc89607c', category: 'cleaning', dateAdded: '2026-01-01', focus: 'Vacuum Room', why: 'To help manage Marvel’s hair and dust', what: 'Vacuum the room', frequency: 'Habit · Sun, Tue, Thu & Sat', freq: 4, duration: 'Four times a week', object: 'Vacuum', active: true, type: 'habit' },
+  { id: 'cleaning-wipe-room-surfaces', ticktickId: '69cef07abe6e5102bc896025', category: 'cleaning', dateAdded: '2026-01-01', focus: 'Wipe Room Surfaces', why: 'To keep surfaces clean and the space peaceful', what: 'Wipe down room surfaces', frequency: 'Habit · Sun, Tue, Thu & Sat', freq: 4, duration: 'Four times a week', object: 'Rags and cleaner', active: true, type: 'habit' },
+  { id: 'organizing-next-step-awareness-review', ticktickId: '6a93a4ba8f0861e0f0e2ae3b', category: 'organizing', dateAdded: '2026-01-01', focus: 'Next Step Awareness Review', why: 'To turn a larger plan into one visible physical move', what: 'Open the next-step guide, choose one outcome, and place its next physical action in Next Step Actions', frequency: 'Task · Sunday', freq: 1, duration: 'Weekly review', object: 'Next-step guide', active: true, type: 'task' },
+  { id: 'dog-behavior-training', ticktickId: '6a939bc28f08defd95911956', category: 'dog', dateAdded: '2026-01-01', focus: 'Daily Marvel Care — Attention + Enrichment', why: 'To give Marvel varied attention, stimulation, and care during the workweek', what: 'Choose from sniff, move, think, cuddle, brush, teeth, or supply care', frequency: 'Habit · Mon–Fri', freq: 5, duration: 'One meaningful care option', object: 'Marvel care supplies', active: true, type: 'habit' },
+  { id: 'dog-walks', ticktickId: '69cef7a256f71102bc896e72', category: 'dog', dateAdded: '2026-01-01', focus: 'Walk Marvel — Priority', why: 'To prioritize Marvel’s movement, stimulation, bonding, and regulation', what: 'Take Marvel for a focused walk', frequency: 'Habit · Mon, Fri & Sat', freq: 3, duration: 'Three times a week', object: 'Leash, clicker, treats, and treat tote', active: true, type: 'habit' },
+  { id: 'dog-weekly-vacuum-marvel', ticktickId: '69d0076e237c51026a8d958d', category: 'dog', dateAdded: '2026-01-01', focus: 'Vacuum Brush Marvel', why: 'To reduce shedding and loose hair', what: 'Use the vacuum brush attachment', frequency: 'Habit · Sun, Tue & Thu', freq: 3, duration: 'Three times a week', object: 'Vacuum brush attachment', active: true, type: 'habit' },
+
+  // Habits added during the Milanote-to-TickTick deployment.
+  { id: 'body-teeth-night', ticktickId: '6a939b628f087e0df42d25f2', category: 'body', dateAdded: '2026-08-29', focus: 'Teeth Brushing — Night Routine', why: 'To protect oral health through one dependable nighttime cue', what: 'Brush teeth; this also includes flossing, mouthwash, and tongue scraping', frequency: 'Habit · Daily · 11 PM', freq: 7, duration: 'Night routine', object: 'Oral-care supplies', active: true, type: 'habit' },
+  { id: 'body-full-gym-session', ticktickId: '6a939b8e8f087e0df42d2bb6', category: 'body', dateAdded: '2026-08-29', focus: 'Full Gym Session — Complete Flow', why: 'To build strength through complete, well-formed sessions', what: 'Warm up, complete the planned sets and reps with enough weight and good form, then cool down', frequency: 'Habit · Mon–Sat', freq: 6, duration: 'One full planned session', object: 'Gym plan', active: true, type: 'habit' },
+  { id: 'body-active-pt', ticktickId: '6a939b928f080f71bbb37508', category: 'body', dateAdded: '2026-08-29', focus: 'Active PT — Follow PDF', why: 'To support healing and movement using the prescribed plan', what: 'Open the PT PDF and complete the prescribed exercises', frequency: 'Habit · Mon–Sat', freq: 6, duration: 'Current prescribed session', object: 'PT PDF', active: true, type: 'habit' },
+  { id: 'body-creatine-fiber', ticktickId: '6a939b9e8f08defd95911710', category: 'body', dateAdded: '2026-08-29', focus: 'Creatine and Fiber Supplements', why: 'To support training and nutrition with one combined cue', what: 'Take creatine and fiber together', frequency: 'Habit · Daily', freq: 7, duration: 'One combined supplement check', object: 'Creatine and fiber', active: true, type: 'habit' },
+  { id: 'mind-open-job-search', ticktickId: '6a939bb48f08defd959118ae', category: 'organizing', dateAdded: '2026-08-29', focus: 'Open Job Search Flow', why: 'To keep occupational progress visible without duplicating the separate workflow', what: 'Open the external flow for applications, found roles, recruiters, and development', frequency: 'Habit · Mon–Fri', freq: 5, duration: 'Open and follow the separate flow', object: 'Job-search flow', active: true, type: 'habit' },
+  { id: 'cleaning-room-reset', ticktickId: '6a939bbb8f0861e0f0e21dcf', category: 'cleaning', dateAdded: '2026-08-29', focus: 'Clean Room Reset', why: 'To keep the room regulating and usable without creating backlog', what: 'Return visible items, remove trash, and clear the main walking and working surfaces', frequency: 'Habit · Daily · Night', freq: 7, duration: 'Daily reset', object: 'Room-cleaning supplies', active: true, type: 'habit' },
+  { id: 'cleaning-kitchen-usable', ticktickId: '6a939bbe8f08defd95911933', category: 'cleaning', dateAdded: '2026-08-29', focus: 'Make Kitchen Usable', why: 'To keep food preparation available without creating backlog', what: 'Clear one preparation surface, address dishes, and remove anything blocking cooking', frequency: 'Habit · Daily', freq: 7, duration: 'Daily reset', object: 'Kitchen-cleaning supplies', active: true, type: 'habit' },
+  { id: 'mind-daytime-rest', ticktickId: '6a93a46e8f0869c15168d502', category: 'mind', dateAdded: '2026-08-29', focus: 'Daytime Rest / Quiet Reset', why: 'To protect regulation and recovery while awake', what: 'Rest physically or mentally; meditate or choose a simple low-thinking action', frequency: 'Habit · Daily', freq: 7, duration: 'One genuine pause', object: 'Quiet space', active: true, type: 'habit' },
+  { id: 'body-fruit-vegetable', ticktickId: '6a93a4728f08defd9591a2d1', category: 'body', dateAdded: '2026-08-29', focus: 'Eat a Fruit or Vegetable', why: 'To add a simple antioxidant-rich serving to the day', what: 'Eat one planned fruit or vegetable serving with a meal', frequency: 'Habit · Daily', freq: 7, duration: 'One serving', object: 'Fruit or vegetables', active: true, type: 'habit' },
+  { id: 'body-movement-break', ticktickId: '6a93a4788f080f71bbb3fcdf', category: 'body', dateAdded: '2026-08-29', focus: 'Movement Break — Walk, Stretch, or Stand', why: 'To interrupt long sitting and support energy and mobility', what: 'Walk, stretch, or stand briefly; even one minute counts', frequency: 'Habit · Daily', freq: 7, duration: 'One or more brief breaks', object: '', active: true, type: 'habit' },
+  { id: 'soul-creative-tinkering', ticktickId: '6a93a47b8f080f71bbb3fd1d', category: 'soul', dateAdded: '2026-08-29', focus: 'Creative / Tinkering Session', why: 'To make room for curiosity, learning, and unpressured creation', what: 'Choose curiosity, intentional learning, or unrestricted making', frequency: 'Habit · Daily', freq: 7, duration: 'One bounded session', object: 'Chosen creative materials', active: true, type: 'habit' },
+  { id: 'organizing-side-hustle-progress', ticktickId: '6a93a4828f0869c15168d5ff', category: 'organizing', dateAdded: '2026-08-29', focus: 'Side Hustle Progress', why: 'To keep income-building experiments moving through small actions', what: 'Choose one next step for selling items or candles', frequency: 'Habit · Daily', freq: 7, duration: 'One next action', object: 'Selling or candle project materials', active: true, type: 'habit' },
+  { id: 'body-face-shaving', ticktickId: '6a93a4858f080f71bbb3fdea', category: 'body', dateAdded: '2026-08-29', focus: 'Face Shaving — Every 3 Days', why: 'To maintain preferred grooming without daily pressure', what: 'Shave or trim the face to the preferred standard', frequency: 'Habit · Every 3 days', freq: 2.33, duration: 'One grooming session', object: 'Shaving supplies', active: true, type: 'habit' },
+  { id: 'body-body-shaving', ticktickId: '6a93a4888f087e0df42e2033', category: 'body', dateAdded: '2026-08-29', focus: 'Body Shaving — Weekly', why: 'To maintain preferred body grooming on a predictable day', what: 'Complete the selected areas for the self-care session', frequency: 'Habit · Friday', freq: 1, duration: 'Weekly self-care', object: 'Shaving supplies', active: true, type: 'habit' },
+
+  // Required tasks and undated guidance currently present in TickTick.
+  { id: 'body-recovery-options', ticktickId: '6a939f358f087e0df42d9264', category: 'body', dateAdded: '2026-08-29', focus: 'Recovery Options — Choose or Skip', why: 'To respond to the body’s actual recovery needs without six separate habits', what: 'Choose TENS, massage gun, dry brushing, massage chair, stretching/yoga, or a relaxing activity; skip when none is needed', frequency: 'Task · Daily', freq: 7, duration: 'One needed option or intentional skip', object: 'Recovery tools', active: true, type: 'task' },
+  { id: 'cleaning-bathroom-weekly', ticktickId: '6a93a4ba8f080f71bbb4017b', category: 'cleaning', dateAdded: '2026-08-29', focus: 'Clean Bathroom — Weekly', why: 'To keep the bathroom sanitary, regulating, and usable', what: 'Clean the toilet, sink, mirror, tub or shower, floor, and remove trash', frequency: 'Task · Saturday', freq: 1, duration: 'Weekly bathroom reset', object: 'Bathroom-cleaning supplies', active: true, type: 'task' },
+  { id: 'cleaning-wash-towels', ticktickId: '6a93a4ba8f0869c15168d8ef', category: 'cleaning', dateAdded: '2026-08-29', focus: 'Wash Towels', why: 'To keep clean towels available', what: 'Wash, dry, fold, and put away used towels', frequency: 'Task · Friday', freq: 1, duration: 'Weekly', object: 'Laundry supplies', active: true, type: 'task' },
+  { id: 'organizing-instagram-review', ticktickId: '6a717b138eacd1383a95dd19', category: 'organizing', dateAdded: '2026-08-29', focus: 'Instagram Following Review', why: 'To keep the social feed intentional and reduce digital noise', what: 'Review followed accounts and remove what no longer serves the feed', frequency: 'Task · Undated', freq: 0, duration: 'As scheduled', object: 'Instagram', active: true, type: 'task' },
+  { id: 'body-nutrition-flow-note', ticktickId: '6a93a4ba8f087e0df42e265c', category: 'body', dateAdded: '2026-08-29', focus: 'Nutrition Flow — Use Macro Tracker', why: 'To keep protein, meal spacing, energy snacks, fluids, and supplements visible without duplicating the macro tracker', what: 'Use the macro tracker; TickTick supplies the supporting action cues', frequency: 'Reference · Undated', freq: 0, duration: 'Ongoing guidance', object: 'Macro tracker', active: true, type: 'reminder' },
+  { id: 'body-gym-standards-note', ticktickId: '6a93a5018f087e0df42e2df8', category: 'body', dateAdded: '2026-08-29', focus: 'Gym Session Standards', why: 'To define what counts as a full, safe, intentional gym session', what: 'Warm up, use enough controlled weight, follow tempo and rest, complete planned sets and reps, follow PT, and cool down', frequency: 'Reference · Undated', freq: 0, duration: 'Read with gym plan', object: 'Gym and PT plans', active: true, type: 'reminder' },
+  { id: 'organizing-life-path-note', ticktickId: '6a93a4ba8f08defd9591a81c', category: 'organizing', dateAdded: '2026-08-29', focus: 'Life Path & Active Project Direction', why: 'To keep short-term direction, growth strategy, spiritual alignment, and long-term stability visible', what: 'Keep outcomes here or in Routine Hub and schedule only the next physical action', frequency: 'Reference · Undated', freq: 0, duration: 'Review when choosing direction', object: 'Life-path notes', active: true, type: 'project' },
+  { id: 'organizing-job-search-map-note', ticktickId: '6a93a7088f080f71bbb422a3', category: 'organizing', dateAdded: '2026-08-29', focus: 'Job Search Flow — Coverage Map', why: 'To make every job-search lane explicit while the detailed process stays external', what: 'Role applications, automation-found roles, personally found roles, recruiter search, and occupational development', frequency: 'Reference · Undated', freq: 0, duration: 'Use with weekday job-search habit', object: 'External job-search flow', active: true, type: 'reminder' },
+  { id: 'dog-marvel-care-note', ticktickId: '6a93a5018f080f71bbb405a7', category: 'dog', dateAdded: '2026-08-29', focus: 'Marvel Care & Attention Menu', why: 'To keep patience, attention, enrichment, grooming, and supplies visible together', what: 'Use the menu to choose the care Marvel needs today', frequency: 'Reference · Undated', freq: 0, duration: 'Flexible guidance', object: 'Marvel care menu', active: true, type: 'reminder' },
+  { id: 'soul-music-log-note', ticktickId: '69f658e5e81f9118d36dc4b0', category: 'soul', dateAdded: '2026-08-29', focus: 'Music Sessions Log', why: 'To keep links and records for the scheduled music sessions together', what: 'Open the appropriate session and record what happened', frequency: 'Reference · Undated', freq: 0, duration: 'Ongoing log', object: 'Music session records', active: true, type: 'reference' },
+  { id: 'soul-creative-project-menu-note', ticktickId: '6a93a4ba8f0861e0f0e2ae3a', category: 'soul', dateAdded: '2026-08-29', focus: 'Creative / Tinkering & Project Menu', why: 'To keep deep dives, botanicals, lotions, sewing, knitting, and the baby blanket visible without crowding Today', what: 'Choose a project and schedule only its next physical action', frequency: 'Reference · Undated', freq: 0, duration: 'Project guidance', object: 'Creative project materials', active: true, type: 'project' },
+  { id: 'mind-rest-sleep-note', ticktickId: '6a93a4ba8f080f71bbb40176', category: 'mind', dateAdded: '2026-08-29', focus: 'Rest & Sleep Priorities', why: 'To protect rest, healing, regulation, energy, and follow-through', what: 'Use daytime rest when needed and let the nighttime routine support sleep as an outcome', frequency: 'Reference · Undated', freq: 0, duration: 'Ongoing guidance', object: 'Grounding list', active: true, type: 'reminder' },
+];
+
+const TICKTICK_BY_ID = new Map(TICKTICK_ROUTINES.map(routine => [routine.id, routine]));
+const ROUTINES = [
+  ...LEGACY_ROUTINES.map(routine => TICKTICK_BY_ID.get(routine.id) || routine),
+  ...TICKTICK_ROUTINES.filter(routine => !LEGACY_ROUTINES.some(existing => existing.id === routine.id)),
+];
+
 // Reference table, shown inside the Organizing category.
 const PLANTS = [
   { group: 'Twice a week', items: [
@@ -139,137 +194,137 @@ const ALIGNMENT_AREAS = [
 
 const MOTIVATION_MAP_GROUPS = [
   { area: 'movement', label: 'Fitness & Activity — Gym Sessions', items: [
-    { title: 'Full Sessions', type: 'habit' },
-    { title: 'Enough Weight', type: 'reminder' },
-    { title: 'Movement Timing', type: 'reminder' },
-    { title: 'Active PT', type: 'habit' },
-    { title: 'Warm-Up Stretch', type: 'habit' },
-    { title: 'Cool-Down Stretch', type: 'habit' },
+    { title: 'Full Sessions', type: 'habit', routineId: 'body-full-gym-session' },
+    { title: 'Enough Weight', type: 'reminder', routineId: 'body-gym-standards-note' },
+    { title: 'Movement Timing', type: 'reminder', routineId: 'body-gym-standards-note' },
+    { title: 'Active PT', type: 'habit', routineId: 'body-active-pt' },
+    { title: 'Warm-Up Stretch', type: 'habit', routineId: 'body-full-gym-session' },
+    { title: 'Cool-Down Stretch', type: 'habit', routineId: 'body-full-gym-session' },
     { title: 'Endurance Cardio', type: 'habit', routineId: 'body-cardio-training' },
   ]},
   { area: 'movement', label: 'Fitness & Activity — Movement Through the Day', items: [
-    { title: 'Daily Walks', type: 'habit' },
-    { title: 'Stretch Breaks', type: 'habit' },
-    { title: 'Standing', type: 'habit' },
+    { title: 'Daily Walks', type: 'habit', routineId: 'body-movement-break' },
+    { title: 'Stretch Breaks', type: 'habit', routineId: 'body-movement-break' },
+    { title: 'Standing', type: 'habit', routineId: 'body-movement-break' },
   ]},
 
   { area: 'nutrition', label: 'Micro and Macronutrients', items: [
-    { title: 'Protein Intake', type: 'habit', routineId: 'body-protein-intake' },
-    { title: 'Antioxidants', type: 'habit' },
+    { title: 'Protein Intake', type: 'habit', routineId: 'body-nutrition-flow-note' },
+    { title: 'Antioxidants', type: 'habit', routineId: 'body-fruit-vegetable' },
   ]},
   { area: 'nutrition', label: 'Daily Supplements', items: [
     { title: 'Morning Vitamins', type: 'habit', routineId: 'body-vitamins-supplements' },
     { title: 'Nightly Vitamins', type: 'habit', routineId: 'body-vitamins-supplements' },
-    { title: 'Fiber Intake', type: 'habit' },
-    { title: 'Creatine', type: 'habit' },
+    { title: 'Fiber Intake', type: 'habit', routineId: 'body-creatine-fiber' },
+    { title: 'Creatine', type: 'habit', routineId: 'body-creatine-fiber' },
   ]},
   { area: 'nutrition', label: 'Daily Flow', items: [
     { title: 'Daily Fluid Intake', type: 'habit', routineId: 'body-water-intake' },
-    { title: 'Energy Snacks', type: 'habit' },
-    { title: 'Spaced Meals', type: 'habit' },
+    { title: 'Energy Snacks', type: 'habit', routineId: 'body-nutrition-flow-note' },
+    { title: 'Spaced Meals', type: 'habit', routineId: 'body-nutrition-flow-note' },
   ]},
 
   { area: 'recovery', label: 'Rest', items: [
-    { title: 'Rest — Physical and Mental While Awake', type: 'reminder' },
-    { title: 'Sleep', type: 'habit' },
-    { title: 'Wind-Down Routine', type: 'routine' },
-    { title: 'Sleep Supplements', type: 'habit' },
-    { title: 'Stretching / Yoga', type: 'habit' },
+    { title: 'Rest — Physical and Mental While Awake', type: 'reminder', routineId: 'mind-daytime-rest' },
+    { title: 'Sleep', type: 'habit', routineId: 'mind-rest-sleep-note' },
+    { title: 'Wind-Down Routine', type: 'routine', routineId: 'mind-rest-sleep-note' },
+    { title: 'Sleep Supplements', type: 'habit', routineId: 'body-vitamins-supplements' },
+    { title: 'Stretching / Yoga', type: 'habit', routineId: 'body-recovery-options' },
   ]},
   { area: 'recovery', label: 'Rest / Recreational', items: [
-    { title: 'Relaxing Activities', type: 'habit' },
-    { title: 'Non-Analytical / Straightforward Tasks', type: 'reminder' },
+    { title: 'Relaxing Activities', type: 'habit', routineId: 'body-recovery-options' },
+    { title: 'Non-Analytical / Straightforward Tasks', type: 'reminder', routineId: 'mind-daytime-rest' },
   ]},
   { area: 'recovery', label: 'Recovery Sessions — 4–5x a Week', items: [
-    { title: 'TENS Machine', type: 'habit' },
-    { title: 'Massage Gun', type: 'habit' },
-    { title: 'Dry Brushing', type: 'habit' },
-    { title: 'Massage Chair at Gym', type: 'habit' },
+    { title: 'TENS Machine', type: 'habit', routineId: 'body-recovery-options' },
+    { title: 'Massage Gun', type: 'habit', routineId: 'body-recovery-options' },
+    { title: 'Dry Brushing', type: 'habit', routineId: 'body-recovery-options' },
+    { title: 'Massage Chair at Gym', type: 'habit', routineId: 'body-recovery-options' },
   ]},
 
   { area: 'mind', label: 'Regulatory', items: [
-    { title: 'Organized Mindset — Priorities, Effort, etc.', type: 'reminder' },
+    { title: 'Organized Mindset — Priorities, Effort, etc.', type: 'reminder', routineId: 'mind-weekday-reminders' },
     { title: 'Organized Finances — What We Have', type: 'task', routineId: 'organizing-personal-finance-allocation' },
     { title: 'Organized Financial Plan — How We Are Using It', type: 'project', routineId: 'organizing-savings-allocations' },
   ]},
   { area: 'mind', label: 'Motivating Qualities to Cultivate', items: [
-    { title: 'Mind Defined Purpose — Mindset', type: 'reminder' },
-    { title: 'Mind Defined Direction — Based on Actual Movement and Actions', type: 'reminder' },
-    { title: 'Emotional Cultivation — Joy', type: 'reminder' },
-    { title: 'Curiosity — Allowing Curiosity', type: 'reminder' },
-    { title: 'Mind Self-Assurance — Confidence in Action, Decisions, and Trajectory', type: 'reminder' },
+    { title: 'Mind Defined Purpose — Mindset', type: 'reminder', routineId: 'mind-weekday-reminders' },
+    { title: 'Mind Defined Direction — Based on Actual Movement and Actions', type: 'reminder', routineId: 'mind-weekday-reminders' },
+    { title: 'Emotional Cultivation — Joy', type: 'reminder', routineId: 'mind-weekday-reminders' },
+    { title: 'Curiosity — Allowing Curiosity', type: 'reminder', routineId: 'mind-weekday-reminders' },
+    { title: 'Mind Self-Assurance — Confidence in Action, Decisions, and Trajectory', type: 'reminder', routineId: 'mind-weekday-reminders' },
   ]},
   { area: 'mind', label: 'Regulation and Growth', items: [
     { title: 'Emotional Development — Book Reading and Self-Connection', type: 'habit', routineId: 'mind-reading' },
     { title: 'Healthy Mind Sessions — Small Guided Audio Episodes', type: 'habit', routineId: 'mind-healthy-minds-session' },
-    { title: 'Strategies — Build from Wanting to Grow Past Certain Habits', type: 'project' },
+    { title: 'Strategies — Build from Wanting to Grow Past Certain Habits', type: 'project', routineId: 'organizing-life-path-note' },
   ]},
   { area: 'mind', label: 'Exploration and Discovery', items: [
     { title: 'Self-Discovery — Getting Familiar with Me', type: 'habit', routineId: 'mind-journaling' },
     { title: 'Guided Journaling — Exploring Life Areas', type: 'habit', routineId: 'mind-journaling' },
     { title: 'Reflection — Learning from Experience', type: 'habit', routineId: 'mind-journaling' },
-    { title: 'Meditation — Solitude in Quiet', type: 'habit', routineId: 'mind-healthy-minds-session' },
+    { title: 'Meditation — Solitude in Quiet', type: 'habit', routineId: 'mind-daytime-rest' },
   ]},
 
   { area: 'occupation', label: 'Occupational Search — Daily', items: [
-    { title: 'Role Applications', type: 'task' },
-    { title: 'Automation-Found Roles', type: 'task' },
-    { title: 'Personally Found Roles', type: 'task' },
-    { title: 'Recruiter Search', type: 'task' },
-    { title: 'Development', type: 'project' },
+    { title: 'Role Applications', type: 'task', routineId: 'mind-open-job-search' },
+    { title: 'Automation-Found Roles', type: 'task', routineId: 'mind-open-job-search' },
+    { title: 'Personally Found Roles', type: 'task', routineId: 'mind-open-job-search' },
+    { title: 'Recruiter Search', type: 'task', routineId: 'mind-open-job-search' },
+    { title: 'Development', type: 'project', routineId: 'mind-open-job-search' },
   ]},
   { area: 'occupation', label: 'Side Hustles — Daily', items: [
-    { title: 'Clothes and Object Selling', type: 'project' },
-    { title: 'Candles', type: 'project' },
+    { title: 'Clothes and Object Selling', type: 'project', routineId: 'organizing-side-hustle-progress' },
+    { title: 'Candles', type: 'project', routineId: 'organizing-side-hustle-progress' },
   ]},
 
   { area: 'life-path', label: 'Actual Goals and Direction — Short Term', items: [
-    { title: 'What We Want / Immediate Problems It Solves', type: 'project' },
-    { title: 'How We Are Getting There / Method to Complete', type: 'project' },
-    { title: 'Why We Are Doing It / Justification', type: 'reminder' },
+    { title: 'What We Want / Immediate Problems It Solves', type: 'project', routineId: 'organizing-life-path-note' },
+    { title: 'How We Are Getting There / Method to Complete', type: 'project', routineId: 'organizing-life-path-note' },
+    { title: 'Why We Are Doing It / Justification', type: 'reminder', routineId: 'organizing-life-path-note' },
   ]},
   { area: 'life-path', label: 'Actual Goals and Direction — Long Term', items: [
-    { title: 'Spiritual Fulfillment and Alignment — Actual Long-Term Actions', type: 'project' },
-    { title: 'Past Stabilization and Getting Our Footing — Fulfillment-Based Actions', type: 'project' },
-    { title: 'Long-Term Past Stabilization', type: 'project' },
+    { title: 'Spiritual Fulfillment and Alignment — Actual Long-Term Actions', type: 'project', routineId: 'organizing-life-path-note' },
+    { title: 'Past Stabilization and Getting Our Footing — Fulfillment-Based Actions', type: 'project', routineId: 'organizing-life-path-note' },
+    { title: 'Long-Term Past Stabilization', type: 'project', routineId: 'organizing-life-path-note' },
   ]},
 
   { area: 'self-care', label: 'Daily Self-Care', items: [
-    { title: 'Teeth Brushing', type: 'habit' },
-    { title: 'Flossing, Mouthwash, and Tongue Scraper', type: 'habit' },
+    { title: 'Teeth Brushing', type: 'habit', routineId: 'body-teeth-night' },
+    { title: 'Flossing, Mouthwash, and Tongue Scraper', type: 'habit', routineId: 'body-teeth-night' },
     { title: 'Face Washing', type: 'habit', routineId: 'body-washing-face-complexion' },
     { title: 'Shower / Bath', type: 'habit', routineId: 'body-weekly-bath' },
   ]},
   { area: 'self-care', label: 'Self-Care Routine', items: [
     { title: 'Nails — Cut, Clean, and Cuticles — Weekly Wednesday', type: 'task', routineId: 'body-nail-cuticle-care' },
     { title: 'Foot Care — Weekly', type: 'task', routineId: 'body-feet-care' },
-    { title: 'Face Shaving — Every Three Days', type: 'habit' },
-    { title: 'Body Shaving — Once a Week', type: 'habit' },
+    { title: 'Face Shaving — Every Three Days', type: 'habit', routineId: 'body-face-shaving' },
+    { title: 'Body Shaving — Once a Week', type: 'habit', routineId: 'body-body-shaving' },
   ]},
 
   { area: 'creative', label: 'Creative / Tinkering', items: [
     { title: 'Music and Singing — Broad Category', type: 'habit', routineId: 'soul-main-session' },
-    { title: 'Curiosity “Recess” Exploration', type: 'habit' },
-    { title: 'Development — Intentional Learning', type: 'habit' },
-    { title: 'Art Form — Unrestricted, Non-Guided', type: 'habit' },
+    { title: 'Curiosity “Recess” Exploration', type: 'habit', routineId: 'soul-creative-tinkering' },
+    { title: 'Development — Intentional Learning', type: 'habit', routineId: 'soul-creative-tinkering' },
+    { title: 'Art Form — Unrestricted, Non-Guided', type: 'habit', routineId: 'soul-creative-tinkering' },
   ]},
   { area: 'creative', label: 'Creative Projects', items: [
-    { title: 'Deep Dives — Large Projects', type: 'project' },
-    { title: 'Botanicals / Lotions — Curious', type: 'project' },
-    { title: 'Sewing / Knitting Projects — Making Savanna a Baby Blanket', type: 'project' },
+    { title: 'Deep Dives — Large Projects', type: 'project', routineId: 'soul-creative-project-menu-note' },
+    { title: 'Botanicals / Lotions — Curious', type: 'project', routineId: 'soul-creative-project-menu-note' },
+    { title: 'Sewing / Knitting Projects — Making Savanna a Baby Blanket', type: 'project', routineId: 'soul-creative-project-menu-note' },
   ]},
 
   { area: 'marvel', label: 'Marvel', items: [
-    { title: 'Attention — More Patience', type: 'reminder' },
+    { title: 'Attention — More Patience', type: 'reminder', routineId: 'dog-marvel-care-note' },
     { title: 'Training — Intentional Sessions', type: 'habit', routineId: 'dog-play-sessions' },
     { title: 'Grooming', type: 'task', routineId: 'dog-clip-nails' },
     { title: 'Physical Activity — Walks, Playing, and Backyard Time', type: 'habit', routineId: 'dog-walks' },
   ]},
 
   { area: 'maintenance', label: 'Clean Environment', items: [
-    { title: 'Clean Bathroom — Weekly', type: 'task' },
-    { title: 'Clean Room / Organized — Daily', type: 'task' },
-    { title: 'Kitchen Usable for Making Food', type: 'task' },
+    { title: 'Clean Bathroom — Weekly', type: 'task', routineId: 'cleaning-bathroom-weekly' },
+    { title: 'Clean Room / Organized — Daily', type: 'task', routineId: 'cleaning-room-reset' },
+    { title: 'Kitchen Usable for Making Food', type: 'task', routineId: 'cleaning-kitchen-usable' },
     { title: 'Car — Saturdays', type: 'task', routineId: 'cleaning-vacuum-car' },
   ]},
   { area: 'maintenance', label: 'Organized Space', items: [
@@ -278,7 +333,7 @@ const MOTIVATION_MAP_GROUPS = [
   ]},
   { area: 'maintenance', label: 'Clean Laundry', items: [
     { title: 'Clean Clothes — Friday', type: 'task', routineId: 'cleaning-clean-laundry' },
-    { title: 'Clean Towels — Friday', type: 'task' },
+    { title: 'Clean Towels — Friday', type: 'task', routineId: 'cleaning-wash-towels' },
     { title: 'Clean Bedding — Every Other Friday', type: 'task', routineId: 'cleaning-wash-bedding' },
   ]},
   { area: 'maintenance', label: 'Maintaining', items: [
@@ -291,15 +346,29 @@ const ROUTINE_ALIGNMENT_AREAS = {
   'body-cardio-training': 'movement',
   'body-abdominal-training': 'movement',
   'body-put-out-gym-clothes': 'movement',
+  'body-full-gym-session': 'movement',
+  'body-active-pt': 'movement',
+  'body-movement-break': 'movement',
   'body-protein-intake': 'nutrition',
   'body-vitamins-supplements': 'nutrition',
   'body-water-intake': 'nutrition',
+  'body-creatine-fiber': 'nutrition',
+  'body-fruit-vegetable': 'nutrition',
+  'body-nutrition-flow-note': 'nutrition',
+  'body-gym-standards-note': 'movement',
+  'body-recovery-options': 'recovery',
   'body-weekly-bath': 'recovery',
   'body-moisturize-body': 'self-care',
   'body-feet-care': 'self-care',
   'body-washing-face-complexion': 'self-care',
   'body-getting-haircut': 'self-care',
   'body-nail-cuticle-care': 'self-care',
+  'body-teeth-night': 'self-care',
+  'body-face-shaving': 'self-care',
+  'body-body-shaving': 'self-care',
+  'mind-daytime-rest': 'recovery',
+  'mind-rest-sleep-note': 'recovery',
+  'mind-open-job-search': 'occupation',
   'mind-clothes-audit': 'maintenance',
   'mind-weekday-reminders': 'life-path',
   'mind-personal-check-in': 'life-path',
@@ -309,6 +378,13 @@ const ROUTINE_ALIGNMENT_AREAS = {
   'soul-monthly-review': 'creative',
   'soul-vocal-training': 'creative',
   'soul-pinterest-reset': 'creative',
+  'soul-creative-tinkering': 'creative',
+  'soul-creative-project-menu-note': 'creative',
+  'soul-music-log-note': 'creative',
+  'cleaning-room-reset': 'maintenance',
+  'cleaning-kitchen-usable': 'maintenance',
+  'cleaning-bathroom-weekly': 'maintenance',
+  'cleaning-wash-towels': 'maintenance',
   'organizing-personal-finance-allocation': 'occupation',
   'organizing-savings-allocations': 'occupation',
   'organizing-needed-purchases': 'maintenance',
@@ -318,6 +394,11 @@ const ROUTINE_ALIGNMENT_AREAS = {
   'organizing-next-step-awareness-review': 'life-path',
   'organizing-family-altruism-review': 'life-path',
   'organizing-family-finance-review': 'occupation',
+  'organizing-side-hustle-progress': 'occupation',
+  'organizing-instagram-review': 'maintenance',
+  'organizing-life-path-note': 'life-path',
+  'organizing-job-search-map-note': 'occupation',
+  'dog-marvel-care-note': 'marvel',
 };
 
 const DAILY_ANCHORS = [
