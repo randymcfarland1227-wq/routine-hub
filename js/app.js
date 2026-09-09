@@ -11,6 +11,7 @@ const state = {
   alignmentArea: 'movement',
   alignmentType: 'all',
   alignmentSearch: '',
+  alignmentSystemFilter: 'all',
 };
 
 const ZOOM_MIN = 0.7, ZOOM_MAX = 1.6, ZOOM_STEP = 0.1, ZOOM_BASE = 380;
@@ -222,6 +223,24 @@ function alignmentModel() {
   return groups;
 }
 
+function milanoteSourceModel() {
+  const routineById = new Map(state.routines.map(routine => [String(routine.id), routine]));
+  return MOTIVATION_MAP_GROUPS.map(group => ({
+    ...group,
+    items: group.items.map(item => {
+      const routine = item.routineId ? routineById.get(String(item.routineId)) : null;
+      return {
+        ...item,
+        routine,
+        source: 'matrix',
+        systems: routine
+          ? routineSystems(routine, true)
+          : { site: true, sheet: false, ticktick: false, milanote: true },
+      };
+    }),
+  })).filter(group => group.items.length);
+}
+
 function renderGuide() {
   const dayIndex = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0)) / 86400000);
   document.getElementById('dailyAnchor').textContent = DAILY_ANCHORS[dayIndex % DAILY_ANCHORS.length];
@@ -284,7 +303,12 @@ function renderAlignmentAreaChips() {
   const counts = {};
   groups.forEach(group => { counts[group.area] = (counts[group.area] || 0) + group.items.length; });
   const container = document.getElementById('alignmentAreaChips');
-  container.innerHTML = ALIGNMENT_AREAS.map(area => `
+  const totalCount = groups.reduce((sum, group) => sum + group.items.length, 0);
+  container.innerHTML = `
+    <button class="alignment-area-chip all-categories${state.alignmentArea === 'all' ? ' active' : ''}" data-area="all" style="--area:#4f5cb8">
+      <span>▦</span>All categories<small>${totalCount}</small>
+    </button>
+  ` + ALIGNMENT_AREAS.map(area => `
     <button class="alignment-area-chip${state.alignmentArea === area.id ? ' active' : ''}" data-area="${area.id}" style="--area:${area.color}">
       <span>${area.icon}</span>${area.short}<small>${counts[area.id] || 0}</small>
     </button>
@@ -292,12 +316,24 @@ function renderAlignmentAreaChips() {
   container.querySelectorAll('button').forEach(button => {
     button.addEventListener('click', () => {
       state.alignmentArea = button.dataset.area;
+      state.alignmentSystemFilter = 'all';
       state.alignmentSearch = '';
       document.getElementById('alignmentSearch').value = '';
       renderAlignmentAreaChips();
       renderAlignment();
     });
   });
+  updateAlignmentScrollButtons();
+}
+
+function updateAlignmentScrollButtons() {
+  const scroller = document.getElementById('alignmentAreaScroll');
+  const left = document.getElementById('areaScrollLeft');
+  const right = document.getElementById('areaScrollRight');
+  if (!scroller || !left || !right) return;
+  const maxScroll = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+  left.disabled = scroller.scrollLeft <= 2;
+  right.disabled = scroller.scrollLeft >= maxScroll - 2;
 }
 
 function renderAlignmentTypeChips() {
@@ -318,6 +354,10 @@ function renderAlignmentTypeChips() {
 
 function itemMatchesAlignmentFilters(item, query) {
   if (state.alignmentType !== 'all' && item.type !== state.alignmentType) return false;
+  const systems = item.systems || {};
+  if (state.alignmentSystemFilter === 'sheet' && !systems.sheet) return false;
+  if (state.alignmentSystemFilter === 'ticktick' && !systems.ticktick) return false;
+  if (state.alignmentSystemFilter === 'missing' && systems.sheet && systems.ticktick) return false;
   if (!query) return true;
   const searchable = [item.title, item.note, item.routine && item.routine.why, item.routine && item.routine.what, item.routine && item.routine.frequency]
     .filter(Boolean).join(' ').toLowerCase();
@@ -331,9 +371,11 @@ function alignmentItemHTML(item) {
     ? '<span class="alignment-state">active in TickTick</span>'
     : `<span class="alignment-state paused">${routine ? 'not active in TickTick' : 'not yet matched'}</span>`;
   const details = [];
-  if (routine && routine.frequency) details.push(routine.frequency);
   if (routine && routine.why) details.push(routine.why);
   const aliases = (item.matrixAliases || []).filter(title => title.toLowerCase() !== item.title.toLowerCase());
+  const cadence = routine && routine.frequency
+    ? routine.frequency
+    : 'Not scheduled in TickTick';
   return `
     <div class="alignment-item type-item-${item.type}">
       <span class="alignment-item-icon" aria-hidden="true">${TYPE_META[item.type].icon}</span>
@@ -342,6 +384,7 @@ function alignmentItemHTML(item) {
           <h4>${escapeHtml(item.title)}</h4>${stateLabel}
         </div>
         <div class="alignment-item-badges">${typeBadgeHTML(item.type)}${systemBadgesHTML(systems)}</div>
+        <p class="alignment-cadence"><b>TickTick interval:</b> ${escapeHtml(cadence)}</p>
         ${details.length ? `<p class="alignment-item-detail">${details.map(escapeHtml).join(' · ')}</p>` : ''}
         ${aliases.length ? `<p class="alignment-aliases"><b>Milanote wording:</b> ${aliases.map(escapeHtml).join(' · ')}</p>` : ''}
         ${item.note ? `<p class="alignment-note">⚠ ${escapeHtml(item.note)}</p>` : ''}
@@ -357,20 +400,36 @@ function renderAlignmentSummary(groups) {
   const linkedOverlapCount = MOTIVATION_MAP_GROUPS.reduce((sum, group) => sum + group.items.filter(item => item.routineId && state.routines.some(routine => String(routine.id) === String(item.routineId))).length, 0);
   const fullyMatched = entries.filter(item => item.systems && item.systems.site && item.systems.sheet && item.systems.ticktick).length;
   document.getElementById('alignmentSummary').innerHTML = `
-    <div class="alignment-total"><b>${entries.length}</b><span>total unique items</span></div>
-    <div><b>${state.routines.length}</b><span>present on the Routine Sheet</span></div>
-    <div><b>${activeCount}</b><span>active in TickTick</span></div>
-    <div><b>${matrixCount}</b><span>Milanote source entries</span></div>
-    <div><b>${entries.length - fullyMatched}</b><span>still need Sheet and/or TickTick matching</span></div>
+    <button class="alignment-total${state.alignmentSystemFilter === 'all' ? ' active' : ''}" data-summary-filter="all" type="button"><b>${entries.length}</b><span>total unique items</span><small>View all</small></button>
+    <button class="${state.alignmentSystemFilter === 'sheet' ? 'active' : ''}" data-summary-filter="sheet" type="button"><b>${state.routines.length}</b><span>present on the Routine Sheet</span><small>View items</small></button>
+    <button class="${state.alignmentSystemFilter === 'ticktick' ? 'active' : ''}" data-summary-filter="ticktick" type="button"><b>${activeCount}</b><span>active in TickTick</span><small>View items</small></button>
+    <button class="${state.alignmentSystemFilter === 'milanote-source' ? 'active' : ''}" data-summary-filter="milanote-source" type="button"><b>${matrixCount}</b><span>Milanote source entries</span><small>View entries</small></button>
+    <button class="${state.alignmentSystemFilter === 'missing' ? 'active' : ''}" data-summary-filter="missing" type="button"><b>${entries.length - fullyMatched}</b><span>still need Sheet and/or TickTick matching</span><small>Review gaps</small></button>
   `;
+  document.querySelectorAll('#alignmentSummary button').forEach(button => {
+    button.addEventListener('click', () => {
+      state.alignmentSystemFilter = button.dataset.summaryFilter;
+      state.alignmentArea = 'all';
+      state.alignmentType = 'all';
+      state.alignmentSearch = '';
+      document.getElementById('alignmentSearch').value = '';
+      renderAlignmentAreaChips();
+      renderAlignmentTypeChips();
+      renderAlignment();
+      document.getElementById('alignmentDetail').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
   document.getElementById('alignmentCoverageNote').innerHTML = `<b>${entries.length} unique items</b> = ${state.routines.length} Routine Sheet items + ${matrixCount} Milanote entries − ${linkedOverlapCount} linked overlaps. ${fullyMatched} are matched across Site + Sheet + TickTick; ${entries.length - fullyMatched} still need matching.`;
 }
 
 function renderAlignment() {
-  const groups = alignmentModel();
-  renderAlignmentSummary(groups);
+  const unionGroups = alignmentModel();
+  const groups = state.alignmentSystemFilter === 'milanote-source' ? milanoteSourceModel() : unionGroups;
+  renderAlignmentSummary(unionGroups);
   const query = state.alignmentSearch.trim().toLowerCase();
-  const areaIds = query ? ALIGNMENT_AREAS.map(area => area.id) : [state.alignmentArea];
+  const areaIds = query || state.alignmentArea === 'all'
+    ? ALIGNMENT_AREAS.map(area => area.id)
+    : [state.alignmentArea];
   const detail = document.getElementById('alignmentDetail');
   const renderedAreas = areaIds.map(areaId => {
     const area = ALIGNMENT_AREAS.find(candidate => candidate.id === areaId);
@@ -400,6 +459,16 @@ document.getElementById('alignmentSearch').addEventListener('input', event => {
   state.alignmentSearch = event.target.value;
   renderAlignment();
 });
+
+const alignmentAreaScroll = document.getElementById('alignmentAreaScroll');
+document.getElementById('areaScrollLeft').addEventListener('click', () => {
+  alignmentAreaScroll.scrollBy({ left: -Math.max(260, alignmentAreaScroll.clientWidth * 0.75), behavior: 'smooth' });
+});
+document.getElementById('areaScrollRight').addEventListener('click', () => {
+  alignmentAreaScroll.scrollBy({ left: Math.max(260, alignmentAreaScroll.clientWidth * 0.75), behavior: 'smooth' });
+});
+alignmentAreaScroll.addEventListener('scroll', updateAlignmentScrollButtons, { passive: true });
+window.addEventListener('resize', updateAlignmentScrollButtons);
 
 // ---------------------------------------------------------------------
 // Routines — fetched from the "Site Routines" sheet tab (seeded once
