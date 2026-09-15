@@ -1387,7 +1387,26 @@ function reviewRoutineHTML(r) {
         </div>
       </div>
       <p class="why-remind">Reminder — ${r.why}</p>
+      ${reviewReferenceHTML(r)}
       <input class="review-notes-input" type="text" placeholder="Roadblocks or notes (optional)" value="${(ans.notes || '').replace(/"/g, '&quot;')}">
+    </div>
+  `;
+}
+
+function reviewReferenceHTML(r) {
+  const reference = ROUTINE_REVIEW_REFERENCES[r.id];
+  if (!reference) return '';
+  return `
+    <div class="review-reference">
+      <p class="review-reference-title">${escapeHtml(reference.title)}</p>
+      <div class="review-reference-scroll" tabindex="0" aria-label="${escapeHtml(reference.title)}">
+        <table>
+          <thead><tr>${reference.columns.map(column => `<th scope="col">${escapeHtml(column)}</th>`).join('')}</tr></thead>
+          <tbody>${reference.rows.map(row => `<tr>${row.map((cell, index) => index === 0
+            ? `<th scope="row">${escapeHtml(cell)}</th>`
+            : `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
     </div>
   `;
 }

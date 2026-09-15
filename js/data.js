@@ -152,11 +152,12 @@ const ROUTINES = [
 const PLANTS = [
   { group: 'Twice a week', items: [
     { name: 'Baby Roses (mini roses)', light: 'Full sun / strongest direct light (morning window best)', water: 'Every 2–4 days, keep lightly moist', tips: 'Water until it drains. Deadhead blooms. Watch for spider mites in dry heat.' },
-    { name: 'Bonsai', light: 'Very bright; often some direct sun', water: 'Every 2–5 days', tips: 'Small pot dries fast — water thoroughly.' },
+    { name: 'Bonsai', light: 'Brightest light of the three', water: 'Water when the top ~1" starts drying', tips: 'Remove only truly dead branches and leaves.' },
   ]},
   { group: '1–2x a week', items: [
     { name: 'Fern', light: 'Medium–bright indirect', water: 'Every 3–6 days, evenly moist', tips: 'Loves humidity, hates heater air. Don’t let it dry out fully.' },
     { name: 'Polka Dot Plant', light: 'Bright indirect', water: 'Every 4–7 days, top ½–1" dry', tips: 'Pinch tips for bushiness. Droops fast when thirsty.' },
+    { name: 'Prayer Plant / Burned Plant', light: 'Bright indirect light', water: 'Keep lightly moist; don’t let it fully dry out', tips: 'Remove badly burned or dead leaves; leave mostly-green ones.' },
   ]},
   { group: 'Weekly', items: [
     { name: 'Dottie Calathea (Pink)', light: 'Medium–bright indirect, no direct sun', water: 'Every 5–9 days, top 1" dry', tips: 'Filtered/distilled water helps. Keep away from vents.' },
@@ -171,11 +172,43 @@ const PLANTS = [
     { name: 'Striped Dracaena', light: 'Medium–bright indirect', water: 'Every 10–18 days, top 2–4" dry', tips: 'Brown tips = minerals/salts; filtered water helps.' },
   ]},
   { group: 'Every 2+ weeks', items: [
-    { name: 'Aloe', light: 'Bright light + some direct sun', water: 'Every 2–4 weeks, only when fully dry', tips: 'Succulent soil + drainage.' },
+    { name: 'Aloe', light: 'Very bright light; some direct sun is good after acclimating', water: 'Let soil dry almost or completely through before watering', tips: 'Remove fully dead or mushy leaves. Use succulent soil with drainage.' },
     { name: 'Ghost Echeveria', light: 'Full sun / max light', water: 'Every 2–4+ weeks, fully dry', tips: 'Keep water out of the rosette.' },
     { name: 'ZZ Plant', light: 'Low → bright indirect', water: 'Every 2–4 weeks, mostly dry', tips: 'The #1 danger is overwatering.' },
   ]},
 ];
+
+// Reference notes that stay attached to existing routines even when the live
+// routine list is refreshed from the Google Sheet. These appear during the
+// bi-weekly review so the practical details are available at decision time.
+const ROUTINE_REVIEW_REFERENCES = {
+  'body-vitamins-supplements': {
+    title: 'Supplement reference',
+    columns: ['Supplement', 'Easiest way to take it', 'Timing that matters'],
+    rows: [
+      ['Collagen', 'Mix into coffee, smoothie, water, yogurt, etc.', 'Any time. Taking it alongside some vitamin C may support collagen synthesis.'],
+      ['Vitamin A', 'Take with a meal containing some fat.', 'Fat-soluble, so with food is preferable. Don’t routinely exceed the label dose.'],
+      ['Fish oil', 'Take with a meal.', 'Best with a meal containing fat; taking it with food also reduces fishy burps or reflux.'],
+    ],
+  },
+  'body-creatine-fiber': {
+    title: 'Supplement reference',
+    columns: ['Supplement', 'Easiest way to take it', 'Timing that matters'],
+    rows: [
+      ['Metamucil / psyllium fiber', 'Mix with at least 8 oz of water and drink immediately, then have more water afterward.', 'Keep it about 2 hours away from medications and other supplements because fiber can affect absorption.'],
+      ['Creatine', 'Take 3–5 g daily, mixed into water, juice, a smoothie, etc.', 'Any time of day. Workout timing barely matters; daily consistency matters much more.'],
+    ],
+  },
+  'organizing-water-plants': {
+    title: 'Plant-care reference',
+    columns: ['Plant', 'Remove dead growth?', 'Light', 'Soil check'],
+    rows: [
+      ['Bonsai', 'Yes, but only truly dead branches or leaves.', 'Brightest light of the three.', 'Water when the top ~1" starts drying.'],
+      ['Aloe', 'Remove fully dead or mushy leaves.', 'Very bright light; some direct sun is good after acclimating.', 'Let soil dry almost or completely through before watering.'],
+      ['Prayer Plant / Burned Plant', 'Remove badly burned or dead leaves; leave mostly-green ones.', 'Bright indirect light.', 'Keep lightly moist; don’t let it fully dry out.'],
+    ],
+  },
+};
 
 // Complete inventory transcribed from the Milanote "Daily Alignment / Motivation Station".
 // Items with routineId are visibly married to their current Routine Hub / TickTick counterpart.

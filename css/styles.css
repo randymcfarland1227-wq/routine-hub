@@ -1355,6 +1355,60 @@ main { padding-top: 20px; }
   margin: 0 0 8px;
 }
 
+.review-reference {
+  margin: 0 0 10px;
+  border: 1px solid color-mix(in srgb, var(--cat) 24%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--cat) 4%, var(--bg));
+  overflow: hidden;
+}
+
+.review-reference-title {
+  margin: 0;
+  padding: 8px 10px;
+  color: var(--cat);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+
+.review-reference-scroll {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.review-reference table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.review-reference th,
+.review-reference td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.review-reference thead th {
+  color: var(--text-faint);
+  background: color-mix(in srgb, var(--cat) 7%, var(--bg-elevated));
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.review-reference tbody th {
+  color: var(--text);
+  font-weight: 700;
+  min-width: 125px;
+}
+
+.review-reference td { color: var(--text-muted); }
+
 .review-notes-input {
   width: 100%;
   font: inherit;
